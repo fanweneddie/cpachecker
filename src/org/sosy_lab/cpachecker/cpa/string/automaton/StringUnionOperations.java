@@ -343,7 +343,7 @@ final public class StringUnionOperations {
 		final StringUnionOperations builder = new StringUnionOperations(); 
 
 		for (CharSequence chs : input)
-			builder.add(c9hs);
+			builder.add(chs);
 
 		return convert(builder.complete(), new IdentityHashMap<State, org.sosy_lab.cpachecker.cpa.string.automaton.State>());
 	}
