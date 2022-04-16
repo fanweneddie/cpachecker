@@ -30,7 +30,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package org.sosy_lab.cpachecker.cpa.string.automaton;
+package org.sosy_lab.cpachecker.util.automaton4string;
 
 import java.io.IOException;
 import java.io.InputStream;

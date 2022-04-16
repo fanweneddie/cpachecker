@@ -30,7 +30,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package org.sosy_lab.cpachecker.cpa.string.automaton;
+package org.sosy_lab.cpachecker.util.automaton4string;
 
 import java.util.Arrays;
 import java.util.Comparator;
@@ -317,13 +317,13 @@ final public class StringUnionOperations {
 	/**
 	 * Internal recursive traversal for conversion.
 	 */
-	private static org.sosy_lab.cpachecker.cpa.string.automaton.State convert(State s,
-			IdentityHashMap<State, org.sosy_lab.cpachecker.cpa.string.automaton.State> visited) {
-		org.sosy_lab.cpachecker.cpa.string.automaton.State converted = visited.get(s);
+	private static org.sosy_lab.cpachecker.util.automaton4string.State convert(State s,
+			IdentityHashMap<State, org.sosy_lab.cpachecker.util.automaton4string.State> visited) {
+		org.sosy_lab.cpachecker.util.automaton4string.State converted = visited.get(s);
 		if (converted != null)
 			return converted;
 
-		converted = new org.sosy_lab.cpachecker.cpa.string.automaton.State();
+		converted = new org.sosy_lab.cpachecker.util.automaton4string.State();
 		converted.setAccept(s.is_final);
 
 		visited.put(s, converted);
@@ -339,13 +339,13 @@ final public class StringUnionOperations {
 	/**
 	 * Build a minimal, deterministic automaton from a sorted list of strings.
 	 */
-	public static org.sosy_lab.cpachecker.cpa.string.automaton.State build(CharSequence[] input) {
+	public static org.sosy_lab.cpachecker.util.automaton4string.State build(CharSequence[] input) {
 		final StringUnionOperations builder = new StringUnionOperations(); 
 
 		for (CharSequence chs : input)
 			builder.add(chs);
 
-		return convert(builder.complete(), new IdentityHashMap<State, org.sosy_lab.cpachecker.cpa.string.automaton.State>());
+		return convert(builder.complete(), new IdentityHashMap<State, org.sosy_lab.cpachecker.util.automaton4string.State>());
 	}
 
 	/**

@@ -30,41 +30,70 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package org.sosy_lab.cpachecker.cpa.string.automaton;
+package org.sosy_lab.cpachecker.util.automaton4string;
 
 /**
- * Automaton provider based on {@link Datatypes}.
+ * Pair of states.
+ * @author Anders M&oslash;ller &lt;<a href="mailto:amoeller@cs.au.dk">amoeller@cs.au.dk</a>&gt;
  */
-public class DatatypesAutomatonProvider implements AutomatonProvider {
+public class StatePair {
+	State s;
+	State s1;
+	State s2;
 	
-	private boolean enable_unicodeblocks, enable_unicodecategories, enable_xml;
-	
-	/**
-	 * Constructs a new automaton provider that recognizes all names
-	 * from {@link Datatypes#get(String)}.
-	 */
-	public DatatypesAutomatonProvider() {
-		enable_unicodeblocks = enable_unicodecategories = enable_xml = true;
+	StatePair(State s, State s1, State s2) {
+		this.s = s;
+		this.s1 = s1;
+		this.s2 = s2;
 	}
 	
 	/**
-	 * Constructs a new automaton provider that recognizes some of the names
-	 * from {@link Datatypes#get(String)}
-	 * @param enable_unicodeblocks if true, enable Unicode block names
-	 * @param enable_unicodecategories if true, enable Unicode category names
-	 * @param enable_xml if true, enable XML related names
+	 * Constructs a new state pair.
+	 * @param s1 first state
+	 * @param s2 second state
 	 */
-	public DatatypesAutomatonProvider(boolean enable_unicodeblocks, boolean enable_unicodecategories, boolean enable_xml) {
-		this.enable_unicodeblocks = enable_unicodeblocks; 
-		this.enable_unicodecategories = enable_unicodecategories;
-		this.enable_xml = enable_xml;
+	public StatePair(State s1, State s2) {
+		this.s1 = s1;
+		this.s2 = s2;
 	}
 	
-	public Automaton getAutomaton(String name) {
-		if ((enable_unicodeblocks && Datatypes.isUnicodeBlockName(name))
-				|| (enable_unicodecategories && Datatypes.isUnicodeCategoryName(name))
-				|| (enable_xml && Datatypes.isXMLName(name)))
-				return Datatypes.get(name);
-		return null;
+	/**
+	 * Returns first component of this pair.
+	 * @return first state
+	 */
+	public State getFirstState() {
+		return s1;
+	}
+	
+	/**
+	 * Returns second component of this pair.
+	 * @return second state
+	 */
+	public State getSecondState() {
+		return s2;
+	}
+	
+	/** 
+	 * Checks for equality.
+	 * @param obj object to compare with
+	 * @return true if <code>obj</code> represents the same pair of states as this pair
+	 */
+	@Override
+	public boolean equals(Object obj) {
+		if (obj instanceof StatePair) {
+			StatePair p = (StatePair)obj;
+			return p.s1 == s1 && p.s2 == s2;
+		}
+		else
+			return false;
+	}
+	
+	/** 
+	 * Returns hash code.
+	 * @return hash code
+	 */
+	@Override
+	public int hashCode() {
+		return s1.hashCode() + s2.hashCode();
 	}
 }

@@ -6,7 +6,7 @@
  *
  * Added to CPAchecker by fanweneddie in 2022
  * In order to represent string in string analysis
- *
+ * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -30,57 +30,20 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package org.sosy_lab.cpachecker.cpa.string.automaton;
+package org.sosy_lab.cpachecker.util.automaton4string;
 
-import java.io.Serializable;
-import java.util.Comparator;
+import java.io.IOException;
 
-class TransitionComparator implements Comparator<Transition>, Serializable {
-
-	static final long serialVersionUID = 10001;
-
-	boolean to_first;
+/**
+ * Automaton provider for <code>RegExp.</code>{@link RegExp#toAutomaton(AutomatonProvider)}
+ */
+public interface AutomatonProvider {
 	
-	TransitionComparator(boolean to_first) {
-		this.to_first = to_first;
-	}
-	
-	/** 
-	 * Compares by (min, reverse max, to) or (to, min, reverse max). 
+	/**
+	 * Returns automaton of the given name.
+	 * @param name automaton name
+	 * @return automaton
+	 * @throws IOException if errors occur
 	 */
-	public int compare(Transition t1, Transition t2) {
-		if (to_first) {
-			if (t1.to != t2.to) {
-				if (t1.to == null)
-					return -1;
-				else if (t2.to == null)
-					return 1;
-				else if (t1.to.number < t2.to.number)
-					return -1;
-				else if (t1.to.number > t2.to.number)
-					return 1;
-			}
-		}
-		if (t1.min < t2.min)
-			return -1;
-		if (t1.min > t2.min)
-			return 1;
-		if (t1.max > t2.max)
-			return -1;
-		if (t1.max < t2.max)
-			return 1;
-		if (!to_first) {
-			if (t1.to != t2.to) {
-				if (t1.to == null)
-					return -1;
-				else if (t2.to == null)
-					return 1;
-				else if (t1.to.number < t2.to.number)
-					return -1;
-				else if (t1.to.number > t2.to.number)
-					return 1;
-			}
-		}
-		return 0;
-	}
+	Automaton getAutomaton(String name) throws IOException;
 }
