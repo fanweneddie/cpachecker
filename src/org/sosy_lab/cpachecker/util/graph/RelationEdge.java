@@ -17,8 +17,8 @@ import java.util.Objects;
  * Directed Edge in RelationGraph, which represents a relation between two nodes.
  * The label on each edge shows which relation it represents.
  * <p></p>
- * @param <N> The type of node
- * @param <L> The type of edge label
+ * @param <N> the type of node
+ * @param <L> the type of edge label
  */
 public class RelationEdge<N, L> {
 
@@ -69,14 +69,14 @@ public class RelationEdge<N, L> {
   /**
    * Check whether this edge starts from a given node.
    */
-  public boolean startFrom(N node) {
+  public boolean startsFrom(N node) {
     return startNode == node;
   }
 
   /**
    * Check whether this edge ends at a given node.
    */
-  public boolean endAt(N node) {
+  public boolean endsAt(N node) {
     return endNode == node;
   }
 
@@ -88,8 +88,15 @@ public class RelationEdge<N, L> {
   }
 
   /**
+   * Check whether this edge connects two nodes.
+   */
+  public boolean connects(N node1, N node2) {
+    return startsFrom(node1) && endsAt(node2);
+  }
+
+  /**
    * Get the edge whose relation is the reverse of this edge.
-   * @return The reverse edge.
+   * @return the reverse edge.
    */
   public RelationEdge getReservedEdge() {
     return new RelationEdge(endNode, startNode, label);
@@ -112,5 +119,25 @@ public class RelationEdge<N, L> {
   @Override
   public int hashCode() {
     return Objects.hash(startNode, endNode, label);
+  }
+
+  @Override
+  public String toString() {
+    String str = "[";
+    if (startNode != null) {
+      str += startNode.toString();
+    }
+
+    str += "] to [";
+    if (endNode != null) {
+      str += endNode.toString();
+    }
+
+    str += "] with label ";
+    if (label != null) {
+      str += label.toString();
+    }
+
+    return str;
   }
 }
