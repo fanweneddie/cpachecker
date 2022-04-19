@@ -39,12 +39,6 @@ public class RelationEdge<N, L> {
    */
   private final L label;
 
-  public RelationEdge() {
-    this.startNode = null;
-    this.endNode = null;
-    this.label = null;
-  }
-
   public RelationEdge(
       N pStartNode,
       N pEndNode,
@@ -96,7 +90,7 @@ public class RelationEdge<N, L> {
 
   /**
    * Get the edge whose relation is the reverse of this edge.
-   * @return the reverse edge.
+   * @return the reverse edge
    */
   public RelationEdge getReservedEdge() {
     return new RelationEdge(endNode, startNode, label);
@@ -123,21 +117,9 @@ public class RelationEdge<N, L> {
 
   @Override
   public String toString() {
-    String str = "[";
-    if (startNode != null) {
-      str += startNode.toString();
-    }
-
-    str += "] to [";
-    if (endNode != null) {
-      str += endNode.toString();
-    }
-
-    str += "] with label ";
-    if (label != null) {
-      str += label.toString();
-    }
-
+    String str = "[" + startNode.toString() + "] to ["
+                  + endNode.toString() + "] with label "
+                  + label.toString();
     return str;
   }
 }

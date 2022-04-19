@@ -19,6 +19,7 @@ import com.google.common.graph.Graph;
 import com.google.common.graph.MutableNetwork;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -31,9 +32,9 @@ import javax.annotation.Nullable;
  * which contains two adjacent lists, with one storing edges starting from each node
  * and the other storing edges ending at each node.
  * <p></p>
- * @param <N> the type of node in the graph.
- * @param <L> the type of label in the edge.
- * @param <RE> the type of relation edge in the graph.
+ * @param <N> the type of node in the graph
+ * @param <L> the type of label in the edge
+ * @param <RE> the type of relation edge in the graph
  */
 public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
     implements MutableNetwork<N, RE> {
@@ -59,13 +60,24 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
         this.adjEndList = new HashMap<>();
     }
 
+    public RelationGraph(HashMap<N, HashSet<RE>> pAdjStartList,
+                         HashMap<N, HashSet<RE>> pAdjEndList) {
+        this.adjStartList = pAdjStartList;
+        this.adjEndList = pAdjEndList;
+    }
+
+    public RelationGraph(RelationGraph pRelationGraph) {
+        this.adjStartList = pRelationGraph.adjStartList;
+        this.adjEndList = pRelationGraph.adjEndList;
+    }
+
     /**
      * Add a node into the graph, if it is not present.
      * <p></p>
      * Note that <code>adjStartList</code> and <code>adjEndList</code> should have consistent nodes and relation edges.
      * <p></p>
-     * @param pN the node to be added, which must not be null.
-     * @return true if the graph is modified.
+     * @param pN the node to be added, which must not be null
+     * @return true if the graph is modified
      */
     @Override
     public boolean addNode(N pN) {
@@ -87,11 +99,11 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
      * as long as their labels are distinctive.
      * Also note that <code>adjStartList</code> and <code>adjEndList</code> should have consistent nodes and relation edges.
      * <p></p>
-     * @param pN the starting node, which must not be null and must have been in graph.
-     * @param pN1 the ending node, which must not be null and must have been in graph.
+     * @param pN the starting node, which must not be null and must have been in graph
+     * @param pN1 the ending node, which must not be null and must have been in graph
      * @param pRE the newly added relation edge, which must not be null,
-     *             and must be valid and must connect <code>pN</code> to <code>pN1</code>.
-     * @return true if the graph is modified.
+     *             and must be valid and must connect <code>pN</code> to <code>pN1</code>
+     * @return true if the graph is modified
      */
     @Override
     public boolean addEdge(N pN, N pN1, RE pRE) {
@@ -115,10 +127,10 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
      * if the edge is not present.
      * We just call {@link RelationGraph#addEdge(Object, Object, RelationEdge)} to solve the problem.
      * @param pEndpointPair the given pair of nodes, whose first element is starting node
-     *                     and second element is ending point. It must not be null.
+     *                     and second element is ending point; Also, it must not be null
      * @param pRE the newly added relation edge, which must not be null,
-     *            and must be valid and must connect two nodes in <code>pEndpointPair</code>.
-     * @return true if the graph is modified.
+     *            and must be valid and must connect two nodes in <code>pEndpointPair</code>
+     * @return true if the graph is modified
      */
     @Override
     public boolean addEdge(EndpointPair<N> pEndpointPair, RE pRE) {
@@ -133,8 +145,8 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
      * <p></p>
      * Note that <code>adjStartList</code> and <code>adjEndList</code> should have consistent nodes and relation edges.
      * <p></p>
-     * @param pN the node to be removed, which must not be null.
-     * @return true if the graph is modified.
+     * @param pN the node to be removed, which must not be null
+     * @return true if the graph is modified
      */
     @Override
     public boolean removeNode(N pN) {
@@ -161,8 +173,8 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
      * <p></p>
      * Note that <code>adjStartList</code> and <code>adjEndList</code> should have consistent nodes and relation edges.
      * <p></p>
-     * @param pRE the relation edge to be removed, which must not be null and must be valid.
-     * @return true if the graph is modified.
+     * @param pRE the relation edge to be removed, which must not be null and must be valid
+     * @return true if the graph is modified
      */
     @Override
     public boolean removeEdge(RE pRE) {
@@ -258,8 +270,8 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
     /**
      * Get the adjacent nodes of a given node.
      * We just call <code>predecessors()</code> and <code>successors()</code> to solve the problem.
-     * @param pN the given node, which must not be null and must be in this graph.
-     * @return the set of adjacent nodes of <code>pN</code>.
+     * @param pN the given node, which must not be null and must be in this graph
+     * @return the set of adjacent nodes of <code>pN</code>
      */
     @Override
     public Set<N> adjacentNodes(N pN) {
@@ -272,8 +284,8 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
 
     /**
      * Get the predecessors of a given node, i.e. the nodes that point to the given node.
-     * @param pN the given node, which must not be null and must be in the graph.
-     * @return the set of predecessors of <code>pN</code>.
+     * @param pN the given node, which must not be null and must be in the graph
+     * @return the set of predecessors of <code>pN</code>
      */
     @Override
     public Set<N> predecessors(N pN) {
@@ -289,8 +301,8 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
 
     /**
      * Get the successors of a given node, i.e. the nodes that the given node points to.
-     * @param pN the given node, which must not be null and must be in this graph.
-     * @return the set of successors of <code>pN</code>.
+     * @param pN the given node, which must not be null and must be in this graph
+     * @return the set of successors of <code>pN</code>
      */
     @Override
     public Set<N> successors(N pN) {
@@ -306,8 +318,8 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
 
     /**
      * Get the relation edges that a given node connects with.
-     * @param pN the given node, which must not be null and must be in this graph.
-     * @return the union set of {@link RelationGraph#inEdges} and {@link RelationGraph#outEdges}.
+     * @param pN the given node, which must not be null and must be in this graph
+     * @return the union set of {@link RelationGraph#inEdges} and {@link RelationGraph#outEdges}
      */
     @Override
     public Set<RE> incidentEdges(N pN) {
@@ -322,8 +334,8 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
 
     /**
      * Get the relation edges that end at a given node.
-     * @param pN the given node, which must not be null and must be in this graph.
-     * @return the set of in-edges of <code>pN</code>.
+     * @param pN the given node, which must not be null and must be in this graph
+     * @return the set of in-edges of <code>pN</code>
      */
     @Override
     public Set<RE> inEdges(N pN) {
@@ -337,8 +349,8 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
 
     /**
      * Get the relation edges that start from a given node.
-     * @param pN the given node, which must not be null and must be in this graph.
-     * @return the set of out-edges of <code>pN</code>.
+     * @param pN the given node, which must not be null and must be in this graph
+     * @return the set of out-edges of <code>pN</code>
      */
     @Override
     public Set<RE> outEdges(N pN) {
@@ -353,8 +365,8 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
     /**
      * Count the degree of a given node, which equals to in-degree + out-degree,
      * where self loop is counted twice.
-     * @param pN the given node, which must not be null and must be in this graph.
-     * @return the degree of <code>pN</code>.
+     * @param pN the given node, which must not be null and must be in this graph
+     * @return the degree of <code>pN</code>
      */
     @Override
     public int degree(N pN) {
@@ -366,8 +378,8 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
 
     /**
      * Count the in-degree of a given node, i.e. the number of edges that end at the node.
-     * @param pN the given node, which must not be null and must be in this graph.
-     * @return the in-degree of <code>pN</code>.
+     * @param pN the given node, which must not be null and must be in this graph
+     * @return the in-degree of <code>pN</code>
      */
     @Override
     public int inDegree(N pN) {
@@ -379,8 +391,8 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
 
     /**
      * Count the out-degree of a given node, i.e. the number of edges that start from the node.
-     * @param pN the given node, which must not be null and must be in this graph.
-     * @return the out-degree of <code>pN</code>.
+     * @param pN the given node, which must not be null and must be in this graph
+     * @return the out-degree of <code>pN</code>
      */
     @Override
     public int outDegree(N pN) {
@@ -408,8 +420,8 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
      * <p></p>
      * Note that a relation edge is not adjacent to itself.
      * @param pRE the given relation edge, which must not be null and must be valid,
-     *            and must be in the graph.
-     * @return the set of adjacent edges of <code>pRE</code>.
+     *            and must be in the graph
+     * @return the set of adjacent edges of <code>pRE</code>
      */
     @Override
     public Set<RE> adjacentEdges(RE pRE) {
@@ -429,9 +441,9 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
 
     /**
      * Get the relation edges that start from one given node and end at the other given node.
-     * @param pN the expected starting node, which must not be null and must be in this graph.
-     * @param pN1 the expected ending node, which must not be null and must be in this graph.
-     * @return the set of relation edges from <code>pN</code> to <code>pN1</code>.
+     * @param pN the expected starting node, which must not be null and must be in this graph
+     * @param pN1 the expected ending node, which must not be null and must be in this graph
+     * @return the set of relation edges from <code>pN</code> to <code>pN1</code>
      */
     @Override
     public Set<RE> edgesConnecting(N pN, N pN1) {
@@ -454,9 +466,9 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
      * <p></p>
      * We just call {@link RelationGraph#edgesConnecting(Object, Object)} to solve this problem.
      * @param pEndpointPair the given pair of nodes, whose first element is starting node
-     *                      and second element is ending point. It must not be null.
+     *                      and second element is ending point. It must not be null
      * @return the set of relation edges from <code>pEndpointPair.nodeU()</code>
-     *         to <code>pEndpointPair.nodeV()</code>.
+     *         to <code>pEndpointPair.nodeV()</code>
      */
     @Override
     public Set<RE> edgesConnecting(EndpointPair<N> pEndpointPair) {
@@ -510,9 +522,9 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
     /**
      * Check whether there is any relation edge that starts from one given node and
      * ends at the other given node.
-     * @param pN the expected starting node, which must not be null and must be in this graph.
-     * @param pN1 the expected ending node, which must not be null and must be in this graph.
-     * @return true if there exist a relation edge from <code>pN</code> to <code>pN1</code>.
+     * @param pN the expected starting node, which must not be null and must be in this graph
+     * @param pN1 the expected ending node, which must not be null and must be in this graph
+     * @return true if there exist a relation edge from <code>pN</code> to <code>pN1</code>
      */
     @Override
     public boolean hasEdgeConnecting(N pN, N pN1) {
@@ -529,9 +541,9 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
      * <p></p>
      * We just call {@link RelationGraph#hasEdgeConnecting(Object, Object)} to solve this problem.
      * @param pEndpointPair the given pair of nodes, whose first element is starting node
-     *                      and second element is ending point. It must not be null.
+     *                      and second element is ending point. It must not be null
      * @return true if there exist a relation edge from <code>pEndpointPair.nodeU()</code>
-     *         to <code>pEndpointPair.nodeV()</code>.
+     *         to <code>pEndpointPair.nodeV()</code>
      */
     @Override
     public boolean hasEdgeConnecting(EndpointPair<N> pEndpointPair) {
@@ -542,8 +554,8 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
 
     /**
      * Check whether this graph contains a given node.
-     * @param pN the given node, which must not be null.
-     * @return true if this graph contains <code>pN</code>.
+     * @param pN the given node, which must not be null
+     * @return true if this graph contains <code>pN</code>
      */
     public boolean containsNode(N pN) {
         assertNotNull(pN);
@@ -553,8 +565,8 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
 
     /**
      * Check whether this graph contains a given relation edge.
-     * @param pRE the given relation edge, which must not be null and must be valid.
-     * @return true if this graph contains <code>pRE</code>.
+     * @param pRE the given relation edge, which must not be null and must be valid
+     * @return true if this graph contains <code>pRE</code>
      */
     public boolean containsEdge(RE pRE) {
         assertNotNull(pRE);
@@ -567,5 +579,34 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
         } else {
             return false;
         }
+    }
+    /**
+     * Note that {@link #equals} and {@link #hashCode} only depend on adjStartList.
+     */
+    @Override
+    public boolean equals(Object obj) {
+        if (obj == this){
+            return true;
+        }
+        if (!(obj instanceof RelationGraph)) {
+            return false;
+        }
+        RelationGraph relationGraph = (RelationGraph) obj;
+        return Objects.equals(adjStartList, relationGraph.adjStartList)
+            && Objects.equals(adjEndList, relationGraph.adjEndList);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(adjStartList);
+    }
+
+    @Override
+    public String toString() {
+        String str = "";
+        for (RE relationEdge : edges()) {
+            str += relationEdge.toString() + ", ";
+        }
+        return str;
     }
 }
