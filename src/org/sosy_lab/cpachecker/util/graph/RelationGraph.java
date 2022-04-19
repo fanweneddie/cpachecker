@@ -592,8 +592,7 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
             return false;
         }
         RelationGraph relationGraph = (RelationGraph) obj;
-        return Objects.equals(adjStartList, relationGraph.adjStartList)
-            && Objects.equals(adjEndList, relationGraph.adjEndList);
+        return Objects.equals(adjStartList, relationGraph.adjStartList);
     }
 
     @Override
