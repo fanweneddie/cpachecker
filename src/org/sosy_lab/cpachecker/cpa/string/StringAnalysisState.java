@@ -12,14 +12,20 @@ SPDX-License-Identifier: Apache-2.0
 package org.sosy_lab.cpachecker.cpa.string;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static org.junit.Assert.assertNotNull;
 
-import org.sosy_lab.common.collect.PersistentMap;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+import org.sosy_lab.cpachecker.exceptions.CPAException;
+import org.sosy_lab.cpachecker.exceptions.InvalidQueryException;
+import org.sosy_lab.cpachecker.util.automaton4string.BasicAutomata;
 import org.sosy_lab.cpachecker.util.graph.RelationEdge;
 import org.sosy_lab.cpachecker.util.graph.RelationGraph;
 import org.sosy_lab.cpachecker.util.automaton4string.Automaton;
 import org.sosy_lab.cpachecker.core.defaults.LatticeAbstractState;
 import org.sosy_lab.cpachecker.core.interfaces.AbstractQueryableState;
-import org.sosy_lab.cpachecker.cpa.value.type.Value;
 import org.sosy_lab.cpachecker.util.states.MemoryLocation;
 
 public final class StringAnalysisState
@@ -28,51 +34,78 @@ public final class StringAnalysisState
   /**
    * the map from string variables to their possible set of values
    */
-  private PersistentMap<MemoryLocation, Automaton> stringMap;
+  private final Map<MemoryLocation, Automaton> stringMap;
 
   /**
    * the graph that shows the relation among variables
    */
-  private RelationGraph<MemoryLocation, StringRelationLabel,
+  private final RelationGraph<MemoryLocation, StringRelationLabel,
       RelationEdge<MemoryLocation, StringRelationLabel>> relationGraph;
 
-  /**
-   * hashCode should be updated after every change of {@link #stringMap}
-   */
-  private int hashCode = 0;
-
   public StringAnalysisState() {
-      stringMap = null;
-      hashCode = 0;
+    this.stringMap = new HashMap<>();
+    this.relationGraph = new RelationGraph<>();
   }
 
-  private StringAnalysisState(PersistentMap<MemoryLocation, Automaton> pStringMap) {
-      stringMap = checkNotNull(pStringMap);
-      hashCode = pStringMap.hashCode();
+  public StringAnalysisState(
+      Map<MemoryLocation, Automaton> pStringMap,
+      RelationGraph<MemoryLocation, StringRelationLabel,
+          RelationEdge<MemoryLocation, StringRelationLabel>> pRelationGraph) {
+      this.stringMap = checkNotNull(pStringMap);
+      this.relationGraph = checkNotNull(pRelationGraph);
   }
 
-  private StringAnalysisState(StringAnalysisState state) {
-    stringMap = checkNotNull(state.stringMap);
-    hashCode = state.hashCode;
-    assert hashCode == stringMap.hashCode();
-  }
-
-  /**
-   * Assign the value of a string variable
-   * @param variableName name of the string variable
-   * @param value value to be assigned
-   */
-  void assignStringValue(String variableName, Value value) {
-  // Todo
+  public StringAnalysisState(StringAnalysisState state) {
+    this.stringMap = checkNotNull(state.stringMap);
+    this.relationGraph = checkNotNull(state.relationGraph);
   }
 
   /**
-   * Put the value of a string variable into the map
-   * @param pMemLoc name of the string variable
-   * @param pValue value to be put
+   * Assign the value of a string variable.
+   * @param variableName the name of the string variable, which must not be null
+   * @param value the value to be assigned
    */
-  private void putToStringMap(final MemoryLocation pMemLoc, final Value pValue) {
-  // Todo
+  public void assignStringValue(String variableName, String value) {
+    checkNotNull(variableName);
+
+    MemoryLocation memoryLocation = MemoryLocation.parseExtendedQualifiedName(variableName);
+    Automaton automaton = BasicAutomata.makeString(value);
+    stringMap.put(memoryLocation, automaton);
+  }
+
+  /**
+   * Get the set of value of a string variable.
+   * @param variableName the name of the string variable, which must not be null
+   * @return the automaton that represents the set of value of <code>variableName</code>;
+   *         and null if <code>variableName</code> is not recorded in {@link #stringMap}
+   */
+  public Automaton getStringValue(String variableName) {
+    checkNotNull(variableName);
+
+    MemoryLocation memoryLocation = MemoryLocation.parseExtendedQualifiedName(variableName);
+    return stringMap.get(memoryLocation);
+  }
+
+  // Todo: set a relation between two string variables
+  public void setRelation() {
+
+  }
+
+  /**
+   * Propagate the value of other constrained variables after an assignment.
+   * Here, the constraint is shown in {@link #relationGraph}.
+   */
+  private void propagateValueOnConstraint() {
+  }
+
+  @Override
+  public Object evaluateProperty(String pProperty) throws InvalidQueryException {
+    return null;
+  }
+
+  @Override
+  public boolean checkProperty(String pProperty) throws InvalidQueryException {
+    return false;
   }
 
   @Override
@@ -80,29 +113,83 @@ public final class StringAnalysisState
     return "StringAnalysis";
   }
 
+  /**
+   * Join two abstract states that meet in one location.
+   * Here, we set join(e1, e2) = least_upper_bound(e1, e2), which means that
+   * we both union {@link #stringMap} and {@link #relationGraph}.
+   * @param reachedState the other abstract state to be joined with this state,
+   *                     which must not be null
+   * @return the result of join operation
+   */
   @Override
-  public StringAnalysisState join(StringAnalysisState reachedState) {
-    // Todo
-    return reachedState;
+  public StringAnalysisState join(StringAnalysisState reachedState)
+      throws CPAException, InterruptedException {
+    assertNotNull(reachedState);
+
+    // union stringMap
+    Map<MemoryLocation, Automaton> newStringMap = new HashMap<>(stringMap);
+    reachedState.stringMap.forEach(
+        (memoryLocation, automaton) ->
+            newStringMap.merge(memoryLocation, automaton, (automaton1, automaton2) ->
+                  Automaton.union(Arrays.asList(automaton1, automaton2))));
+
+    // union relationGraph
+    RelationGraph<MemoryLocation, StringRelationLabel,
+        RelationEdge<MemoryLocation, StringRelationLabel>> newRelationGraph;
+    newRelationGraph = relationGraph.merge(reachedState.relationGraph);
+
+    return new StringAnalysisState(newStringMap, newRelationGraph);
   }
 
   @Override
-  public boolean isLessOrEqual(StringAnalysisState other) {
+  public boolean isLessOrEqual(StringAnalysisState other)
+      throws CPAException, InterruptedException {
     // Todo
     return true;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (obj == this){
+      return true;
+    }
+    if (!(obj instanceof StringAnalysisState)) {
+      return false;
+    }
+    StringAnalysisState stringAnalysisState = (StringAnalysisState) obj;
+    return Objects.equals(stringMap, stringAnalysisState.stringMap)
+        && Objects.equals(relationGraph, stringAnalysisState.relationGraph);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(stringMap, relationGraph);
+  }
+
+  @Override
+  public String toString() {
+    String str = stringMap.toString() + ", " + relationGraph.toString();
+    return str;
   }
 }
 
 /**
- * The type of relation between two variables
- * Here, we name the variable represented by starting node as x,
- * and the variable represented by ending node as y
+ * The type of relation between two variables.
+ * <p></p>
+ * In the comments below, we suppose the variable represented by starting node as x,
+ * and the variable represented by ending node as y.
  */
 enum StringRelationLabel {
-  EQUAL,              // x and y are equal
-  REVERSE_EQUAL,      // x and y are reverse to each other
-  CONCAT_1,           // y = x concat z, so x is y's prefix
-  CONCAT_2,           // y = z concat x, so x is y's suffix
-  REVERSE_CONCAT_1,   // y = (reverse x) concat z, so reverse x is y's prefix
-  REVERSE_CONCAT_2    // y = z concat (reverse x), so reverse x is y's suffix
+  /** x and y are equal */
+  EQUAL,
+  /** x and y are reverse to each other */
+  REVERSE_EQUAL,
+  /** y = x concat z, so x is y's prefix */
+  CONCAT_1,
+  /** y = z concat x, so x is y's suffix */
+  CONCAT_2,
+  /** y = (reverse x) concat z, so reverse x is y's prefix */
+  REVERSE_CONCAT_1,
+  /** y = z concat (reverse x), so reverse x is y's suffix */
+  REVERSE_CONCAT_2
 }

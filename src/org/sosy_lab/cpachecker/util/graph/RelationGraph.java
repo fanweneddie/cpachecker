@@ -37,7 +37,7 @@ import javax.annotation.Nullable;
  * @param <RE> the type of relation edge in the graph
  */
 public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
-    implements MutableNetwork<N, RE> {
+    implements MutableNetwork<N, RE>, Cloneable {
 
     /**
      * Adjacent list to represent the graph,
@@ -137,6 +137,25 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
         assertNotNull(pEndpointPair);
 
         return addEdge(pEndpointPair.nodeU(), pEndpointPair.nodeV(), pRE);
+    }
+
+    /**
+     * Add a directed relation edge, if it is not present.
+     * <p></p>
+     * We just call {@link RelationGraph#addEdge(Object, Object, RelationEdge)} to solve the problem.
+     * Also note that <code>adjStartList</code> and <code>adjEndList</code> should have consistent nodes and relation edges.
+     * <p></p>
+     * @param pRE the newly added relation edge. It must not be null;
+     *            It also must be valid and its nodes must not be null
+     * @return true if the graph is modified
+     */
+    private boolean addEdge(RE pRE) {
+        assertNotNull(pRE);
+
+        N startNode = pRE.getStartNode();
+        N endNode = pRE.getEndNode();
+
+        return addEdge(startNode, endNode, pRE);
     }
 
     /**
@@ -580,6 +599,7 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
             return false;
         }
     }
+
     /**
      * Note that {@link #equals} and {@link #hashCode} only depend on adjStartList.
      */
@@ -607,5 +627,44 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
             str += relationEdge.toString() + ", ";
         }
         return str;
+    }
+
+    /**
+     * Return a deep copy of this relation graph.
+     */
+    public Object clone() throws CloneNotSupportedException {
+        HashMap<N, HashSet<RE>> newAdjStartList = new HashMap<>(adjStartList);
+        HashMap<N, HashSet<RE>> newAdjEndList = new HashMap<>(adjEndList);
+        return new RelationGraph(newAdjStartList, newAdjEndList);
+    }
+
+    /**
+     * Merge this relation graph with a given relation graph,
+     * by combining their nodes and relation edges.
+     * @param pRelationGraph the given relation graph, must not be null
+     * @return the merging result
+     */
+    public RelationGraph merge(RelationGraph<N,L,RE> pRelationGraph) {
+        assertNotNull(pRelationGraph);
+
+        // get the deep copy of this graph
+        RelationGraph newRelationGraph;
+        try {
+            newRelationGraph = (RelationGraph) this.clone();
+        } catch (CloneNotSupportedException pE) {
+            newRelationGraph = new RelationGraph<>();
+            pE.printStackTrace();
+        }
+
+        // combine the nodes
+        for (N node : pRelationGraph.nodes()) {
+            newRelationGraph.addNode(node);
+        }
+        // combine the edges
+        for (RE relationEdge : pRelationGraph.edges()) {
+            newRelationGraph.addEdge(relationEdge);
+        }
+
+        return newRelationGraph;
     }
 }
