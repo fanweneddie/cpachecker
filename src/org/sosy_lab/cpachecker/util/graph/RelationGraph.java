@@ -11,6 +11,7 @@ SPDX-License-Identifier: Apache-2.0
 
 package org.sosy_lab.cpachecker.util.graph;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static org.junit.Assert.assertNotNull;
 
 import com.google.common.graph.ElementOrder;
@@ -62,20 +63,19 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
 
     public RelationGraph(HashMap<N, HashSet<RE>> pAdjStartList,
                          HashMap<N, HashSet<RE>> pAdjEndList) {
-        this.adjStartList = pAdjStartList;
-        this.adjEndList = pAdjEndList;
+        this.adjStartList = checkNotNull(pAdjStartList);
+        this.adjEndList = checkNotNull(pAdjEndList);
     }
 
     public RelationGraph(RelationGraph pRelationGraph) {
-        this.adjStartList = pRelationGraph.adjStartList;
-        this.adjEndList = pRelationGraph.adjEndList;
+        this.adjStartList = checkNotNull(pRelationGraph.adjStartList);
+        this.adjEndList = checkNotNull(pRelationGraph.adjEndList);
     }
 
     /**
      * Add a node into the graph, if it is not present.
      * <p></p>
      * Note that <code>adjStartList</code> and <code>adjEndList</code> should have consistent nodes and relation edges.
-     * <p></p>
      * @param pN the node to be added, which must not be null
      * @return true if the graph is modified
      */
@@ -98,7 +98,6 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
      * Note that there can be multiple relation edges between two nodes,
      * as long as their labels are distinctive.
      * Also note that <code>adjStartList</code> and <code>adjEndList</code> should have consistent nodes and relation edges.
-     * <p></p>
      * @param pN the starting node, which must not be null and must have been in graph
      * @param pN1 the ending node, which must not be null and must have been in graph
      * @param pRE the newly added relation edge, which must not be null,
@@ -144,7 +143,6 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
      * <p></p>
      * We just call {@link RelationGraph#addEdge(Object, Object, RelationEdge)} to solve the problem.
      * Also note that <code>adjStartList</code> and <code>adjEndList</code> should have consistent nodes and relation edges.
-     * <p></p>
      * @param pRE the newly added relation edge. It must not be null;
      *            It also must be valid and its nodes must not be null
      * @return true if the graph is modified
@@ -163,7 +161,6 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
      * The edges that connect with the node is also removed.
      * <p></p>
      * Note that <code>adjStartList</code> and <code>adjEndList</code> should have consistent nodes and relation edges.
-     * <p></p>
      * @param pN the node to be removed, which must not be null
      * @return true if the graph is modified
      */
@@ -191,7 +188,6 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
      * The nodes that the edge is connected with are not removed.
      * <p></p>
      * Note that <code>adjStartList</code> and <code>adjEndList</code> should have consistent nodes and relation edges.
-     * <p></p>
      * @param pRE the relation edge to be removed, which must not be null and must be valid
      * @return true if the graph is modified
      */
@@ -644,7 +640,7 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
      * @param pRelationGraph the given relation graph, must not be null
      * @return the merging result
      */
-    public RelationGraph merge(RelationGraph<N,L,RE> pRelationGraph) {
+    public RelationGraph merge(RelationGraph<N, L, RE> pRelationGraph) {
         assertNotNull(pRelationGraph);
 
         // get the deep copy of this graph
@@ -666,5 +662,25 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
         }
 
         return newRelationGraph;
+    }
+
+    /**
+     * Check whether this relation graph is the subgraph of a given relation graph.
+     * @param pRelationGraph the given relation graph, which must not be null
+     * @return true if this relation graph is the subgraph of <code>pRelationGraph</code>
+     */
+    public boolean subgraphOf(RelationGraph<N, L, RE> pRelationGraph) {
+        assertNotNull(pRelationGraph);
+
+        // check the subset of nodes
+        if (!pRelationGraph.nodes().containsAll(nodes())) {
+            return false;
+        }
+        // check the subset of edges
+        if (!pRelationGraph.edges().containsAll(edges())) {
+            return false;
+        }
+
+        return true;
     }
 }
