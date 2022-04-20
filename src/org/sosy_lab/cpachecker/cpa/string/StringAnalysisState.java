@@ -21,6 +21,7 @@ import java.util.Objects;
 import org.sosy_lab.cpachecker.exceptions.CPAException;
 import org.sosy_lab.cpachecker.exceptions.InvalidQueryException;
 import org.sosy_lab.cpachecker.util.automaton4string.BasicAutomata;
+import org.sosy_lab.cpachecker.util.automaton4string.BasicOperations;
 import org.sosy_lab.cpachecker.util.graph.RelationEdge;
 import org.sosy_lab.cpachecker.util.graph.RelationGraph;
 import org.sosy_lab.cpachecker.util.automaton4string.Automaton;
@@ -32,12 +33,14 @@ public final class StringAnalysisState
     implements AbstractQueryableState, LatticeAbstractState<StringAnalysisState> {
 
   /**
-   * the map from string variables to their possible set of values
+   * the map from string variables to their possible set of values.
+   * Note that {@link #stringMap} and its Value must not be null
    */
   private final Map<MemoryLocation, Automaton> stringMap;
 
   /**
-   * the graph that shows the relation among variables
+   * the graph that shows the relation among variables.
+   * Note that {@link #relationGraph} must not be null
    */
   private final RelationGraph<MemoryLocation, StringRelationLabel,
       RelationEdge<MemoryLocation, StringRelationLabel>> relationGraph;
@@ -63,10 +66,11 @@ public final class StringAnalysisState
   /**
    * Assign the value of a string variable.
    * @param variableName the name of the string variable, which must not be null
-   * @param value the value to be assigned
+   * @param value the value to be assigned, which must not be null
    */
   public void assignStringValue(String variableName, String value) {
     checkNotNull(variableName);
+    checkNotNull(value);
 
     MemoryLocation memoryLocation = MemoryLocation.parseExtendedQualifiedName(variableName);
     Automaton automaton = BasicAutomata.makeString(value);
@@ -129,9 +133,9 @@ public final class StringAnalysisState
     // union stringMap
     Map<MemoryLocation, Automaton> newStringMap = new HashMap<>(stringMap);
     reachedState.stringMap.forEach(
-        (memoryLocation, automaton) ->
-            newStringMap.merge(memoryLocation, automaton, (automaton1, automaton2) ->
-                  Automaton.union(Arrays.asList(automaton1, automaton2))));
+        (key, value) ->
+            newStringMap.merge(key, value, (value1, value2) ->
+                  Automaton.union(Arrays.asList(value1, value2))));
 
     // union relationGraph
     RelationGraph<MemoryLocation, StringRelationLabel,
@@ -141,10 +145,32 @@ public final class StringAnalysisState
     return new StringAnalysisState(newStringMap, newRelationGraph);
   }
 
+  /**
+   * Check whether this state is lessOrEqual to the given abstract state.
+   * Here, lessOrEqual is the partial order s.t.
+   * e1 lessOrEqual e2 iff e1's value domain and relation is the subset of e2's,
+   * i.e. e2's {@link #stringMap} and {@link #relationGraph} both include e1's.
+   * @param other the given abstract state of string analysis, which must not be null
+   * @return true if this abstract state is lessOrEqual to <code>other</code>
+   */
   @Override
   public boolean isLessOrEqual(StringAnalysisState other)
       throws CPAException, InterruptedException {
-    // Todo
+    assertNotNull(other);
+
+    // check the subset case of stringMap
+    boolean isSubset = stringMap.keySet().stream()
+        .allMatch(key -> other.stringMap.get(key) != null
+                        && BasicOperations.subsetOf(stringMap.get(key), other.stringMap.get(key)));
+    if (!isSubset) {
+      return false;
+    }
+
+    // check the subgraph case of relationGraph
+    if (!relationGraph.subgraphOf(other.relationGraph)) {
+      return false;
+    }
+
     return true;
   }
 
