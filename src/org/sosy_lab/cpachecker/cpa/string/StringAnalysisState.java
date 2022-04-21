@@ -197,25 +197,25 @@ public final class StringAnalysisState
     String str = stringMap.toString() + ", " + relationGraph.toString();
     return str;
   }
-}
 
-/**
- * The type of relation between two variables.
- * <p></p>
- * In the comments below, we suppose the variable represented by starting node as x,
- * and the variable represented by ending node as y.
- */
-enum StringRelationLabel {
-  /** x and y are equal */
-  EQUAL,
-  /** x and y are reverse to each other */
-  REVERSE_EQUAL,
-  /** y = x concat z, so x is y's prefix */
-  CONCAT_1,
-  /** y = z concat x, so x is y's suffix */
-  CONCAT_2,
-  /** y = (reverse x) concat z, so reverse x is y's prefix */
-  REVERSE_CONCAT_1,
-  /** y = z concat (reverse x), so reverse x is y's suffix */
-  REVERSE_CONCAT_2
+  /**
+   * The type of relation between two variables.
+   * <p></p>
+   * In the comments below, we suppose the variable represented by starting node as x,
+   * and the variable represented by ending node as y.
+   */
+    enum StringRelationLabel {
+    /** x and y are equal */
+    EQUAL,
+    /** x and y are reverse to each other */
+    REVERSE_EQUAL,
+    /** y = x concat z, so x is y's prefix */
+    CONCAT_1,
+    /** y = z concat x, so x is y's suffix */
+    CONCAT_2,
+    /** y = (reverse x) concat z, so reverse x is y's prefix */
+    REVERSE_CONCAT_1,
+    /** y = z concat (reverse x), so reverse x is y's suffix */
+    REVERSE_CONCAT_2
+  }
 }
