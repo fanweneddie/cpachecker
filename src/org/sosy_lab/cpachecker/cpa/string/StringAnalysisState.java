@@ -30,7 +30,8 @@ import org.sosy_lab.cpachecker.core.interfaces.AbstractQueryableState;
 import org.sosy_lab.cpachecker.util.states.MemoryLocation;
 
 public final class StringAnalysisState
-    implements AbstractQueryableState, LatticeAbstractState<StringAnalysisState> {
+    implements AbstractQueryableState, LatticeAbstractState<StringAnalysisState>,
+               Cloneable {
 
   /**
    * the map from string variables to their possible set of values.
@@ -88,6 +89,36 @@ public final class StringAnalysisState
 
     MemoryLocation memoryLocation = MemoryLocation.parseExtendedQualifiedName(variableName);
     return stringMap.get(memoryLocation);
+  }
+
+  /**
+   * Remove a given string variable from this state, if it is in {@link #stringMap}.
+   * @param pMemoryLocation the given string variable, which must not be null
+   * @return true if {@link #stringMap} or {@link #relationGraph} has been modified
+   */
+  public boolean removeStringVariable(MemoryLocation pMemoryLocation) {
+    assertNotNull(pMemoryLocation);
+
+    if (!stringMap.containsKey(pMemoryLocation)) {
+      return false;
+    }
+
+    stringMap.remove(pMemoryLocation);
+    relationGraph.removeNode(pMemoryLocation);
+    return true;
+  }
+
+  /**
+   * Drop all entries belonging to the stack frame of a function.
+   * It should be called right before leaving a function.
+   * @param functionName the name of the function that is about to be left
+   */
+  void dropFrame(String functionName) {
+    for (MemoryLocation variable : stringMap.keySet()) {
+      if (variable.isOnFunctionStack(functionName)) {
+        removeStringVariable(variable);
+      }
+    }
   }
 
   // Todo: set a relation between two string variables
@@ -196,6 +227,17 @@ public final class StringAnalysisState
   public String toString() {
     String str = stringMap.toString() + ", " + relationGraph.toString();
     return str;
+  }
+
+  /**
+   * Return a deep copy of this StringAnalysisState.
+   */
+  public Object clone() throws CloneNotSupportedException {
+    Map<MemoryLocation, Automaton> newStringMap = new HashMap<>(stringMap);
+    RelationGraph<MemoryLocation, StringRelationLabel,
+        RelationEdge<MemoryLocation, StringRelationLabel>> newRelationGraph =
+                                                            (RelationGraph) relationGraph.clone();
+    return new StringAnalysisState(newStringMap, newRelationGraph);
   }
 
   /**
