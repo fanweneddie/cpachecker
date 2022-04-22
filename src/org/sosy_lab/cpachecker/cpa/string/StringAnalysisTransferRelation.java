@@ -11,24 +11,24 @@ SPDX-License-Identifier: Apache-2.0
 
 package org.sosy_lab.cpachecker.cpa.string;
 
+import java.util.Collection;
 import java.util.List;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.sosy_lab.cpachecker.cfa.ast.ADeclaration;
 import org.sosy_lab.cpachecker.cfa.ast.AExpression;
 import org.sosy_lab.cpachecker.cfa.ast.AFunctionCall;
 import org.sosy_lab.cpachecker.cfa.ast.AParameterDeclaration;
 import org.sosy_lab.cpachecker.cfa.ast.AStatement;
+import org.sosy_lab.cpachecker.cfa.ast.java.JExpression;
 import org.sosy_lab.cpachecker.cfa.model.ADeclarationEdge;
 import org.sosy_lab.cpachecker.cfa.model.AReturnStatementEdge;
 import org.sosy_lab.cpachecker.cfa.model.AStatementEdge;
 import org.sosy_lab.cpachecker.cfa.model.AssumeEdge;
 import org.sosy_lab.cpachecker.cfa.model.BlankEdge;
-import org.sosy_lab.cpachecker.cfa.model.FunctionCallEdge;
-import org.sosy_lab.cpachecker.cfa.model.FunctionReturnEdge;
-import org.sosy_lab.cpachecker.cfa.model.FunctionSummaryEdge;
 import org.sosy_lab.cpachecker.cfa.model.c.CFunctionSummaryEdge;
+import org.sosy_lab.cpachecker.cfa.model.java.JAssumeEdge;
 import org.sosy_lab.cpachecker.core.defaults.ForwardingTransferRelation;
 import org.sosy_lab.cpachecker.core.defaults.precision.VariableTrackingPrecision;
-import org.sosy_lab.cpachecker.cpa.value.ValueAnalysisState;
 import org.sosy_lab.cpachecker.exceptions.CPATransferException;
 import org.sosy_lab.cpachecker.exceptions.UnrecognizedCodeException;
 
@@ -43,57 +43,44 @@ public class StringAnalysisTransferRelation
     functionName = pFunctionName;
   }
 
-  /**
-   *
-   * @param callEdge
-   * @param arguments
-   * @param parameters
-   * @param calledFunctionName
-   * @return
-   * @throws UnrecognizedCodeException
-   */
   @Override
-  protected StringAnalysisState handleFunctionCallEdge(
-      FunctionCallEdge callEdge,
-      List<? extends AExpression> arguments, List<? extends AParameterDeclaration> parameters,
-      String calledFunctionName) throws UnrecognizedCodeException {
-
-  }
+  protected @Nullable StringAnalysisState handleAssumption(
+    JAssumeEdge cfaEdge, JExpression expression, boolean truthAssumption)
+      throws CPATransferException {
+    return null;
+}
 
   @Override
   protected StringAnalysisState handleBlankEdge(BlankEdge cfaEdge) {
+    return null;
   }
 
   @Override
   protected StringAnalysisState handleReturnStatementEdge(AReturnStatementEdge returnEdge) {
-
-  }
-
-  @Override
-  protected StringAnalysisState handleFunctionReturnEdge(
-      FunctionReturnEdge functionReturnEdge,
-      FunctionSummaryEdge summaryEdge, AFunctionCall exprOnSummary, String callerFunctionName)
-      throws UnrecognizedCodeException {
+    return null;
   }
 
   @Override
   protected StringAnalysisState handleFunctionSummaryEdge(CFunctionSummaryEdge cfaEdge)
       throws CPATransferException {
+    return null;
   }
 
   @Override
   protected StringAnalysisState handleAssumption(
       AssumeEdge cfaEdge, AExpression expression, boolean truthValue) {
-
+    return null;
   }
 
   @Override
   protected StringAnalysisState handleDeclarationEdge(
       ADeclarationEdge declarationEdge, ADeclaration declaration) throws UnrecognizedCodeException {
+    return null;
   }
 
   @Override
   protected StringAnalysisState handleStatementEdge(AStatementEdge cfaEdge, AStatement expression)
       throws UnrecognizedCodeException {
+    return null;
   }
 }
