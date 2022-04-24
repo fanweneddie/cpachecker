@@ -97,6 +97,7 @@ import org.sosy_lab.cpachecker.cpa.value.type.FunctionValue;
 import org.sosy_lab.cpachecker.cpa.value.type.NullValue;
 import org.sosy_lab.cpachecker.cpa.value.type.NumericValue;
 import org.sosy_lab.cpachecker.cpa.value.type.NumericValue.NegativeNaN;
+import org.sosy_lab.cpachecker.cpa.value.type.StringValue;
 import org.sosy_lab.cpachecker.cpa.value.type.Value;
 import org.sosy_lab.cpachecker.cpa.value.type.Value.UnknownValue;
 import org.sosy_lab.cpachecker.exceptions.CPAException;
@@ -2149,7 +2150,7 @@ public abstract class AbstractExpressionValueVisitor
 
   @Override
   public Value visit(JStringLiteralExpression pPaStringLiteralExpression) {
-    return UnknownValue.getInstance();
+    return StringValue.newStringValue(pPaStringLiteralExpression.getValue());
   }
 
   @Override
