@@ -20,18 +20,22 @@ import org.sosy_lab.cpachecker.cfa.model.CFANode;
 import org.sosy_lab.cpachecker.core.defaults.AbstractCPA;
 import org.sosy_lab.cpachecker.core.interfaces.AbstractState;
 import org.sosy_lab.cpachecker.core.interfaces.StateSpacePartition;
+import org.sosy_lab.cpachecker.cpa.string.StringRelationAnalysisState.StringRelationLabel;
+import org.sosy_lab.cpachecker.util.graph.RelationEdge;
+import org.sosy_lab.cpachecker.util.graph.RelationGraph;
+import org.sosy_lab.cpachecker.util.states.MemoryLocation;
 
 @Options(prefix = "cpa.string")
-public class StringAnalysisCPA extends AbstractCPA {
+public class StringRelationAnalysisCPA extends AbstractCPA {
     private final Configuration config;
     private final LogManager logger;
     private final ShutdownNotifier shutdownNotifier;
     private final CFA cfa;
 
-    public StringAnalysisCPA((Configuration pConfig, LogManager pLogger,
-                              ShutdownNotifier pShutdownNotifier, CFA pCfa) {
+    public StringRelationAnalysisCPA(Configuration pConfig, LogManager pLogger,
+                                     ShutdownNotifier pShutdownNotifier, CFA pCfa) {
         // Todo: create abstract domain for super class
-        super();
+        super(null, null);
         this.config           = pConfig;
         this.logger           = pLogger;
         this.shutdownNotifier = pShutdownNotifier;
@@ -40,6 +44,7 @@ public class StringAnalysisCPA extends AbstractCPA {
 
     @Override
     public AbstractState getInitialState(CFANode pNode, StateSpacePartition pPartition) {
-        return new StringAnalysisState();
+        return new StringRelationAnalysisState(
+            (RelationGraph<MemoryLocation, StringRelationLabel, RelationEdge<MemoryLocation, StringRelationLabel>>) null);
     }
 }
