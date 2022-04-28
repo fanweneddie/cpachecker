@@ -11,30 +11,31 @@ SPDX-License-Identifier: Apache-2.0
 
 package org.sosy_lab.cpachecker.cpa.string;
 
-import static org.junit.Assert.assertNotNull;
-
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.sosy_lab.cpachecker.cfa.ast.ADeclaration;
 import org.sosy_lab.cpachecker.cfa.ast.AExpression;
 import org.sosy_lab.cpachecker.cfa.ast.AInitializer;
+import org.sosy_lab.cpachecker.cfa.ast.AInitializerExpression;
 import org.sosy_lab.cpachecker.cfa.ast.AStatement;
-import org.sosy_lab.cpachecker.cfa.ast.java.JDeclaration;
+import org.sosy_lab.cpachecker.cfa.ast.AVariableDeclaration;
 import org.sosy_lab.cpachecker.cfa.ast.java.JExpression;
-import org.sosy_lab.cpachecker.cfa.ast.java.JFieldDeclaration;
-import org.sosy_lab.cpachecker.cfa.ast.java.JInitializerExpression;
-import org.sosy_lab.cpachecker.cfa.ast.java.JVariableDeclaration;
+import org.sosy_lab.cpachecker.cfa.ast.java.JIdExpression;
+import org.sosy_lab.cpachecker.cfa.model.ADeclarationEdge;
 import org.sosy_lab.cpachecker.cfa.model.AReturnStatementEdge;
 import org.sosy_lab.cpachecker.cfa.model.AStatementEdge;
 import org.sosy_lab.cpachecker.cfa.model.AssumeEdge;
 import org.sosy_lab.cpachecker.cfa.model.BlankEdge;
 import org.sosy_lab.cpachecker.cfa.model.FunctionExitNode;
 import org.sosy_lab.cpachecker.cfa.model.java.JAssumeEdge;
-import org.sosy_lab.cpachecker.cfa.model.java.JDeclarationEdge;
+import org.sosy_lab.cpachecker.cfa.types.Type;
 import org.sosy_lab.cpachecker.cfa.types.java.JClassType;
-import org.sosy_lab.cpachecker.cfa.types.java.JType;
 import org.sosy_lab.cpachecker.core.defaults.ForwardingTransferRelation;
 import org.sosy_lab.cpachecker.core.defaults.precision.VariableTrackingPrecision;
+import org.sosy_lab.cpachecker.cpa.string.StringRelationAnalysisState.StringRelationLabel;
 import org.sosy_lab.cpachecker.exceptions.CPATransferException;
 import org.sosy_lab.cpachecker.exceptions.UnrecognizedCodeException;
+import org.sosy_lab.cpachecker.util.states.MemoryLocation;
+import org.sosy_lab.cpachecker.util.states.MemoryLocationVisitor;
 
 public class StringRelationAnalysisTransferRelation
     extends ForwardingTransferRelation<StringRelationAnalysisState, StringRelationAnalysisState, VariableTrackingPrecision> {
@@ -56,21 +57,18 @@ public class StringRelationAnalysisTransferRelation
 
   /**
    * Handle an edge that does nothing.
-   * When we are exiting a function, we need to remove the variables in this function.
-   * Note that function name has been set when we call {@link ForwardingTransferRelation#setInfo}.
+   * We do nothing in the first round.
+   * However, in the strengthening stage, if the edge is a function exit edge,
+   * we need to remove the relation with string variables that are no longer alive.
    *
    * @param cfaEdge the edge to handle
-   * @return the new abstract state after this edge
+   * @return the same state prior to <code>cfaEdge</code>
    */
   @Override
   protected StringRelationAnalysisState handleBlankEdge(BlankEdge cfaEdge) {
     if (cfaEdge.getSuccessor() instanceof FunctionExitNode) {
-      try {
-        state = (StringRelationAnalysisState) state.clone();
-      } catch (CloneNotSupportedException cse) {
-        state = new StringRelationAnalysisState();
-      }
-      //state.dropFrame(functionName);
+      state = StringRelationAnalysisState.deepCopyOf(state);
+      state.dropFrame(functionName);
     }
 
     return state;
@@ -78,19 +76,15 @@ public class StringRelationAnalysisTransferRelation
 
   /**
    * Handle a return edge of a function.
-   * We just need to clear all variables that are defined in this function.
+   * We just need to clear the relation among all variables that are defined in this function.
    *
    * @param returnEdge the given return edge to handle
    * @return the new abstract state after this edge
    */
   @Override
   protected StringRelationAnalysisState handleReturnStatementEdge(AReturnStatementEdge returnEdge) {
-    try {
-      state = (StringRelationAnalysisState) state.clone();
-    } catch (CloneNotSupportedException cse) {
-      state = new StringRelationAnalysisState();
-    }
-    //state.dropFrame(functionName);
+    state = StringRelationAnalysisState.deepCopyOf(state);
+    state.dropFrame(functionName);
 
     return state;
   }
@@ -102,57 +96,46 @@ public class StringRelationAnalysisTransferRelation
   }
 
   /**
-   * Handle a Java declaration edge,
-   * which may contain variable declaration or field declaration.
-   *
-   * @param cfaEdge the Java declaration edge to handle, which must not be null
-   * @param decl    the Java declaration to handle, which must not be null
-   * @return the new abstract state after this edge
+   * Handle a declaration edge for local string variables.
+   * We just first kill the relation between that LHS variable and other variables,
+   * and then add equation relation between LHS variable and RHS variable.
+   * @param declarationEdge the given declaration, which must not be null
+   * @param declaration the declaration of <code>declarationEdge</code>
+   * @return the new state after <code>declarationEdge</code>
+   * @throws UnrecognizedCodeException
    */
   @Override
-  protected StringRelationAnalysisState handleDeclarationEdge(JDeclarationEdge cfaEdge, JDeclaration decl)
-      throws CPATransferException {
-    assertNotNull(cfaEdge);
-    assertNotNull(decl);
+  protected StringRelationAnalysisState handleDeclarationEdge(
+      ADeclarationEdge declarationEdge, ADeclaration declaration) throws UnrecognizedCodeException {
 
-    // 1. deal with variable declaration
-    if (decl instanceof JVariableDeclaration) {
-       return handleJVariableDeclaration((JVariableDeclaration) decl);
-    }
-    // 2. deal with field declaration
-    else if (decl instanceof JFieldDeclaration){
-      return handleJFieldDeclaration((JFieldDeclaration) decl);
-    }
-    // 3. otherwise, the state is not changed
-    else {
-      return state;
-    }
-  }
-
-  /**
-   * Handle a Java variable declaration, and generate a new abstract state if it is a string variable.
-   * @param decl the given Java variable declaration, which must not be null
-   * @return the new abstract state after this declaration
-   */
-  protected StringRelationAnalysisState handleJVariableDeclaration(JVariableDeclaration decl) {
-    assertNotNull(decl);
-
-    if (!isJavaGenericStringType(decl.getType())) {
+    // nothing interesting to see here, please move along
+    // we also don't deal with declaration of global variable
+    if (!(declaration instanceof AVariableDeclaration) ||
+        !isJavaGenericStringType(declaration.getType()) ||
+        declaration.isGlobal()) {
       return state;
     }
 
+    AVariableDeclaration decl = (AVariableDeclaration) declaration;
+    String varName = decl.getName();
+    StringRelationAnalysisState newState = StringRelationAnalysisState.deepCopyOf(state);
+
+    // kill the original relation with LHSVariable
+    MemoryLocation LHSVariable = MemoryLocation.forLocalVariable(functionName, varName);
+    newState.killVariableRelation(LHSVariable);
+
+    // add the equation relation between LHSVariable and RHSVariable
     AInitializer init = decl.getInitializer();
-    if (init instanceof JInitializerExpression) {
-      JExpression exp = ((JInitializerExpression) init).getExpression();
-      //initialValue =
+    if (init instanceof AInitializerExpression) {
+      MemoryLocationVisitor mlv = getVisitor();
+      AExpression exp = ((AInitializerExpression) init).getExpression();
+      MemoryLocation RHSVariable = getExpressionMemLocation(exp, mlv);
+      if (RHSVariable != null) {
+        newState.addRelation(LHSVariable, RHSVariable, StringRelationLabel.EQUAL);
+      }
     }
 
-
-    return null;
-  }
-
-  protected StringRelationAnalysisState handleJFieldDeclaration(JFieldDeclaration decl) {
-    return null;
+    return newState;
   }
 
   @Override
@@ -166,7 +149,7 @@ public class StringRelationAnalysisTransferRelation
    * @param type the given Java type
    * @return true if <code>type</code> is not null and is a String type
    */
-  private static final boolean isJavaStringType(JType type) {
+  private static final boolean isJavaStringType(Type type) {
     if (!(type instanceof JClassType)) {
       return false;
     }
@@ -179,7 +162,22 @@ public class StringRelationAnalysisTransferRelation
     }
   }
 
-  private static final boolean isJavaGenericStringType(JType type) {
+  private static final boolean isJavaGenericStringType(Type type) {
     return isJavaStringType(type); // ||
+  }
+
+  /** returns an initialized, empty visitor */
+  private MemoryLocationVisitor getVisitor() {
+    return new MemoryLocationVisitor(functionName);
+  }
+
+  private MemoryLocation getExpressionMemLocation(AExpression expression,
+                                                  MemoryLocationVisitor mlv) {
+    if (expression instanceof JIdExpression) {
+      JIdExpression IdExpression = (JIdExpression) expression;
+      return IdExpression.accept(mlv);
+    } else {
+      return null;
+    }
   }
 }

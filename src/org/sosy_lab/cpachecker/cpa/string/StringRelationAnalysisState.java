@@ -48,6 +48,78 @@ public final class StringRelationAnalysisState
     this.relationGraph = checkNotNull(state.relationGraph);
   }
 
+  /**
+   * Try to get a deep copy of the given state.
+   * If the deep copy fails, we just get a shallow copy of it.
+   * @param state the given state, which should not be null
+   * @return the deep copied state if possible
+   */
+  public static StringRelationAnalysisState deepCopyOf(StringRelationAnalysisState state) {
+    assertNotNull(state);
+
+    StringRelationAnalysisState clonedState;
+    try {
+      clonedState = (StringRelationAnalysisState) state.clone();
+    } catch (CloneNotSupportedException cse) {
+      clonedState = new StringRelationAnalysisState(state);
+    }
+    return clonedState;
+  }
+
+  /**
+   * remove the variables in the given function from the relation graph.
+   * @param functionName the name of the given function
+   */
+  public void dropFrame(String functionName) {
+    for (MemoryLocation variableName : relationGraph.nodes()) {
+      if (variableName.isOnFunctionStack(functionName)) {
+        removeVariable(variableName);
+      }
+    }
+  }
+
+  /**
+   * Remove a given variable from the relation graph.
+   * @param pMemoryLocation the given variable, which must not be null
+   * @return true if the relation graph is modified
+   */
+  private boolean removeVariable(MemoryLocation pMemoryLocation) {
+    assertNotNull(pMemoryLocation);
+
+    return relationGraph.removeNode(pMemoryLocation);
+  }
+
+  /**
+   * Kill the relation between a given variable and the other variables.
+   * @param pMemoryLocation the given variable
+   * @return true if the relation is killed by this operation
+   */
+  public boolean killVariableRelation(MemoryLocation pMemoryLocation) {
+    assertNotNull(pMemoryLocation);
+
+    return relationGraph.makeNodeIsolated(pMemoryLocation);
+  }
+
+  /**
+   * Add a labeled relation between two given variables.
+   * @param pMemoryLocation1 the first given variable, which must not be null
+   * @param pMemoryLocation2 the second given variable, which must not be null
+   * @param pStringRelationLabel the given label, which must not be null
+   * @return true if the graph is modified.
+   */
+  public boolean addRelation(MemoryLocation pMemoryLocation1,
+                             MemoryLocation pMemoryLocation2,
+                             StringRelationLabel pStringRelationLabel) {
+    assertNotNull(pMemoryLocation1);
+    assertNotNull(pMemoryLocation2);
+    assertNotNull(pStringRelationLabel);
+
+    relationGraph.addNode(pMemoryLocation1);
+    relationGraph.addNode(pMemoryLocation2);
+    RelationEdge<MemoryLocation, StringRelationLabel> newEdge = new RelationEdge<>(
+              pMemoryLocation1, pMemoryLocation2, pStringRelationLabel);
+    return relationGraph.addEdge(pMemoryLocation1, pMemoryLocation2, newEdge);
+  }
 
   // Todo: set a relation between two string variables
   public void setRelation() {
