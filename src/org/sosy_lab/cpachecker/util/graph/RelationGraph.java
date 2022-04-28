@@ -184,6 +184,21 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
     }
 
     /**
+     * Make the given node isolated.
+     * @param pN the given node, which must not be null
+     * @return true if <code>pN</code> becomes isolated by this operation
+     */
+    public boolean makeNodeIsolated(N pN) {
+        assertNotNull(pN);
+
+        if (removeNode(pN)) {
+            return addNode(pN);
+        } else {
+            return false;
+        }
+    }
+
+    /**
      * Remove a relation edge from this graph, if it is present.
      * The nodes that the edge is connected with are not removed.
      * <p></p>
