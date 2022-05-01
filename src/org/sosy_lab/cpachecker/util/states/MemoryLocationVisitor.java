@@ -54,12 +54,14 @@ public class MemoryLocationVisitor
   }
 
   /**
-   * Return null, since the string literal is not a variable
+   * Return a temporary variable for a string constant.
    */
   @Override
   public MemoryLocation visit(JStringLiteralExpression paStringLiteralExpression)
       throws NoException {
-    return null;
+    String value = paStringLiteralExpression.getValue();
+    MemoryLocation memLoc = MemoryLocation.forLocalVariable(functionName, value);
+    return memLoc;
   }
 
   @Override

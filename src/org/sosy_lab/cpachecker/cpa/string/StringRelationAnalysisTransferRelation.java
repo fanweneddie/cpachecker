@@ -112,14 +112,14 @@ public class StringRelationAnalysisTransferRelation
     boolean boolValue;
 
     if (AreFunctionReturnValueAndBooleanValue(operand1, operand2)) {
-      invocation = getFunctionReturnValue(operand1);
+      invocation = getFunctionInvocation(operand1);
       boolValue = ((JBooleanLiteralExpression) operand2).getBoolean();
     } else {
-      invocation = getFunctionReturnValue(operand2);
+      invocation = getFunctionInvocation(operand2);
       boolValue = ((JBooleanLiteralExpression) operand1).getBoolean();
     }
 
-    if (isStringEquals(invocation)) {
+    if (TypeChecker.isStringEquals(invocation)) {
       return handleStringEquals(invocation, !(boolValue^truthValue));
     }
 
@@ -145,12 +145,11 @@ public class StringRelationAnalysisTransferRelation
       return state;
     }
 
-    MemoryLocationVisitor mlv = getVisitor();
     JIdExpression string1 = invocation.getReferencedVariable();
     JIdExpression string2 = (JIdExpression) parameter;
 
-    MemoryLocation stringVar1 = getExpressionMemLocation(string1, mlv);
-    MemoryLocation stringVar2 = getExpressionMemLocation(string2, mlv);
+    MemoryLocation stringVar1 = StringVariableGenerator.getExpressionMemLocation(string1, functionName);
+    MemoryLocation stringVar2 = StringVariableGenerator.getExpressionMemLocation(string2, functionName);
 
     StringRelationAnalysisState newState = StringRelationAnalysisState.deepCopyOf(state);
     newState.addRelation(stringVar1, stringVar2, StringRelationLabel.EQUAL);
@@ -174,7 +173,7 @@ public class StringRelationAnalysisTransferRelation
     // nothing interesting to see here, please move along
     // we also don't deal with declaration of global variable
     if (!(declaration instanceof AVariableDeclaration) ||
-        !isJavaGenericStringType(declaration.getType()) ||
+        !TypeChecker.isJavaGenericStringType(declaration.getType()) ||
         declaration.isGlobal()) {
       return state;
     }
@@ -190,9 +189,8 @@ public class StringRelationAnalysisTransferRelation
     // add the equation relation between LHSVariable and RHSVariable
     AInitializer init = decl.getInitializer();
     if (init instanceof AInitializerExpression) {
-      MemoryLocationVisitor mlv = getVisitor();
       AExpression exp = ((AInitializerExpression) init).getExpression();
-      MemoryLocation RHSVariable = getExpressionMemLocation(exp, mlv);
+      MemoryLocation RHSVariable = StringVariableGenerator.getExpressionMemLocation(exp, functionName);
       if (RHSVariable != null) {
         newState.addRelation(LHSVariable, RHSVariable, StringRelationLabel.EQUAL);
         newState.copyInvocation(RHSVariable, LHSVariable);
@@ -249,14 +247,13 @@ public class StringRelationAnalysisTransferRelation
       return state;
     }
 
-    MemoryLocationVisitor mlv = getVisitor();
-    MemoryLocation LHSVariable = getExpressionMemLocation(op1, mlv);
+    MemoryLocation LHSVariable = StringVariableGenerator.getExpressionMemLocation(op1, functionName);
     JReferencedMethodInvocationExpression invocation = (JReferencedMethodInvocationExpression) op2;
 
     StringRelationAnalysisState newState = StringRelationAnalysisState.deepCopyOf(state);
     newState.setInvocation(LHSVariable, invocation);
 
-    if (isStringConcat(invocation)) {
+    if (TypeChecker.isStringConcat(invocation)) {
       return handleStringConcat(LHSVariable, invocation, newState);
     } // else reverse
 
@@ -268,7 +265,6 @@ public class StringRelationAnalysisTransferRelation
                                                          StringRelationAnalysisState curState) {
     JIdExpression callerObject = invocation.getReferencedVariable();
     JExpression param = invocation.getParameterExpressions().get(0);
-    MemoryLocationVisitor mlv = getVisitor();
     // Todo: consider constant
     return curState;
   }
@@ -290,13 +286,12 @@ public class StringRelationAnalysisTransferRelation
     }
 
     JIdExpression LHSExpression = (JIdExpression) LHS;
-    if (!isJavaGenericStringType(LHSExpression.getExpressionType())) {
+    if (!TypeChecker.isJavaGenericStringType(LHSExpression.getExpressionType())) {
       return state;
     }
 
-    MemoryLocationVisitor mlv = getVisitor();
     JExpression RHS = expressionAssignment.getRightHandSide();
-    MemoryLocation LHSVariable = getExpressionMemLocation(LHSExpression, mlv);
+    MemoryLocation LHSVariable = StringVariableGenerator.getExpressionMemLocation(LHSExpression, functionName);
     StringRelationAnalysisState newState = StringRelationAnalysisState.deepCopyOf(state);
 
     // kill the original relation with LHSVariable
@@ -305,7 +300,7 @@ public class StringRelationAnalysisTransferRelation
     // if RHS is a variable, add the equation relation between LHSVariable and RHSVariable
     if (RHS instanceof JIdExpression) {
       JIdExpression RHSExpression = (JIdExpression) RHS;
-      MemoryLocation RHSVariable = getExpressionMemLocation(RHSExpression, mlv);
+      MemoryLocation RHSVariable = StringVariableGenerator.getExpressionMemLocation(RHSExpression, functionName);
       if (RHSVariable != null) {
         newState.addRelation(LHSVariable, RHSVariable, StringRelationLabel.EQUAL);
         newState.copyInvocation(RHSVariable, LHSVariable);
@@ -315,42 +310,7 @@ public class StringRelationAnalysisTransferRelation
     return newState;
   }
 
-  /**
-   * Check whether a given Java Type is Java String type.
-   * @param type the given Java type
-   * @return true if <code>type</code> is not null and is a String type
-   */
-  private static final boolean isJavaStringType(Type type) {
-    if (!(type instanceof JClassType)) {
-      return false;
-    }
 
-    JClassType classType = (JClassType) type;
-    if (classType.getName().equals("java.lang.String")) {
-      return true;
-    } else {
-      return false;
-    }
-  }
-
-  private static final boolean isJavaGenericStringType(Type type) {
-    return isJavaStringType(type); // ||
-  }
-
-  /** returns an initialized, empty visitor */
-  private MemoryLocationVisitor getVisitor() {
-    return new MemoryLocationVisitor(functionName);
-  }
-
-  private static MemoryLocation getExpressionMemLocation(AExpression expression,
-                                                  MemoryLocationVisitor mlv) {
-    if (expression instanceof JIdExpression) {
-      JIdExpression IdExpression = (JIdExpression) expression;
-      return IdExpression.accept(mlv);
-    } else {
-      return null;
-    }
-  }
 
   /**
    * Check whether the given expression is a JBinaryExpression
@@ -375,54 +335,21 @@ public class StringRelationAnalysisTransferRelation
    * and the second operand is a boolean value.
    */
   private boolean AreFunctionReturnValueAndBooleanValue(JExpression operand1, JExpression operand2) {
-    return getFunctionReturnValue(operand1) != null &&
+    return getFunctionInvocation(operand1) != null &&
           operand2 instanceof JBooleanLiteralExpression;
   }
 
   /**
    * Get the Invocation of an operand, if it is the return value of a function call.
    */
-  private JReferencedMethodInvocationExpression getFunctionReturnValue(JExpression operand) {
+  private JReferencedMethodInvocationExpression getFunctionInvocation(JExpression operand) {
     if (!(operand instanceof JIdExpression)) {
       return null;
     }
 
-    MemoryLocationVisitor mlv = getVisitor();
-    MemoryLocation variable = getExpressionMemLocation(operand, mlv);
+    MemoryLocation variable = StringVariableGenerator.getExpressionMemLocation(operand, functionName);
     JReferencedMethodInvocationExpression invocation = state.getInvocation(variable);
 
     return invocation;
-  }
-
-  /**
-   * Check whether the given method is equals() of String.
-   */
-  private static boolean isStringEquals(JReferencedMethodInvocationExpression invocation) {
-    if (!(invocation.getFunctionNameExpression() instanceof JIdExpression)) {
-      return false;
-    }
-
-    JIdExpression functionNameExpression = (JIdExpression) invocation.getFunctionNameExpression();
-    JIdExpression callerObject = invocation.getReferencedVariable();
-
-    return isJavaGenericStringType(callerObject.getExpressionType()) &&
-          functionNameExpression.toString().equals("equals");
-  }
-
-  /**
-   * Check whether the given method is concat() of String.
-   */
-  private static boolean isStringConcat(JReferencedMethodInvocationExpression invocation) {
-    if (!(invocation.getFunctionNameExpression() instanceof JIdExpression)) {
-      return false;
-    }
-
-    JIdExpression functionNameExpression = (JIdExpression) invocation.getFunctionNameExpression();
-    JIdExpression callerObject = invocation.getReferencedVariable();
-    List<JExpression> params = invocation.getParameterExpressions();
-
-    return isJavaGenericStringType(callerObject.getExpressionType()) &&
-          params.size() == 1 &&
-          functionNameExpression.toString().equals("concat");
   }
 }
