@@ -14,7 +14,10 @@ package org.sosy_lab.cpachecker.cpa.string;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.junit.Assert.assertNotNull;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
+import org.sosy_lab.cpachecker.cfa.ast.java.JReferencedMethodInvocationExpression;
 import org.sosy_lab.cpachecker.exceptions.CPAException;
 import org.sosy_lab.cpachecker.exceptions.InvalidQueryException;
 import org.sosy_lab.cpachecker.util.graph.RelationEdge;
@@ -34,18 +37,28 @@ public final class StringRelationAnalysisState
   private final RelationGraph<MemoryLocation, StringRelationLabel,
       RelationEdge<MemoryLocation, StringRelationLabel>> relationGraph;
 
+  /**
+   * maps from a temporary variable to its invocation expression.
+   * Note that {@link #invocationMap} must not be null
+   */
+  private final Map<MemoryLocation, JReferencedMethodInvocationExpression> invocationMap;
+
   public StringRelationAnalysisState() {
     this.relationGraph = new RelationGraph<>();
+    this.invocationMap = new HashMap<>();
   }
 
   public StringRelationAnalysisState(
       RelationGraph<MemoryLocation, StringRelationLabel,
-          RelationEdge<MemoryLocation, StringRelationLabel>> pRelationGraph) {
+          RelationEdge<MemoryLocation, StringRelationLabel>> pRelationGraph,
+      Map<MemoryLocation, JReferencedMethodInvocationExpression> pInvocationMap) {
       this.relationGraph = checkNotNull(pRelationGraph);
+      this.invocationMap = checkNotNull(pInvocationMap);
   }
 
   public StringRelationAnalysisState(StringRelationAnalysisState state) {
     this.relationGraph = checkNotNull(state.relationGraph);
+    this.invocationMap = checkNotNull(state.invocationMap);
   }
 
   /**
@@ -127,6 +140,41 @@ public final class StringRelationAnalysisState
   }
 
   /**
+   * Copy the invocation of the first variable to the second variable.
+   * @param pMemoryLocationFrom the first variable, whose invocation is what we copy from
+   * @param pMemoryLocationTo the second variable, whose invocation is what we copy to
+   */
+  public void copyInvocation(MemoryLocation pMemoryLocationFrom,
+                             MemoryLocation pMemoryLocationTo) {
+    JReferencedMethodInvocationExpression invocation = getInvocation(pMemoryLocationFrom);
+    if (invocation != null) {
+      setInvocation(pMemoryLocationTo, invocation);
+    }
+  }
+
+  /**
+   * Get the invocation assignment statement of a variable.
+   */
+  public JReferencedMethodInvocationExpression getInvocation(MemoryLocation pMemoryLocation) {
+    return invocationMap.get(pMemoryLocation);
+  }
+
+  /**
+   * Set the invocation assignment statement of a variable.
+   */
+  public void setInvocation(MemoryLocation pMemoryLocation,
+                            JReferencedMethodInvocationExpression pInvocation) {
+    invocationMap.put(pMemoryLocation, pInvocation);
+  }
+
+  /**
+   * Remove the invocation assignment statement of a variable.
+   */
+  private void removeInvocation(MemoryLocation pMemoryLocation) {
+    invocationMap.remove(pMemoryLocation);
+  }
+
+  /**
    * Propagate the value of other constrained variables after an assignment.
    * Here, the constraint is shown in {@link #relationGraph}.
    */
@@ -166,7 +214,11 @@ public final class StringRelationAnalysisState
         RelationEdge<MemoryLocation, StringRelationLabel>> newRelationGraph;
     newRelationGraph = relationGraph.merge(reachedState.relationGraph);
 
-    return new StringRelationAnalysisState(newRelationGraph);
+    Map<MemoryLocation, JReferencedMethodInvocationExpression> newInvocationMap = new HashMap<>();
+    newInvocationMap.putAll(invocationMap);
+    newInvocationMap.putAll(reachedState.invocationMap);
+
+    return new StringRelationAnalysisState(newRelationGraph, newInvocationMap);
   }
 
   /**
@@ -220,7 +272,10 @@ public final class StringRelationAnalysisState
     RelationGraph<MemoryLocation, StringRelationLabel,
         RelationEdge<MemoryLocation, StringRelationLabel>> newRelationGraph =
                                                             (RelationGraph) relationGraph.clone();
-    return new StringRelationAnalysisState(newRelationGraph);
+    Map<MemoryLocation, JReferencedMethodInvocationExpression> newInvocationMap = new HashMap<>();
+    newInvocationMap.putAll(invocationMap);
+
+    return new StringRelationAnalysisState(newRelationGraph, newInvocationMap);
   }
 
   /**
