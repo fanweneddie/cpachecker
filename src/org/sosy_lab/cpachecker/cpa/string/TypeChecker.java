@@ -29,7 +29,7 @@ public class TypeChecker {
    * @return true if <code>type</code> is not null and is a generic string type
    */
   public static final boolean isJavaGenericStringType(Type type) {
-    return isJavaStringType(type); // ||
+    return isJavaStringType(type) || isJavaStringBuilderType(type);
   }
 
   /**
@@ -37,13 +37,31 @@ public class TypeChecker {
    * @param type the given Java type
    * @return true if <code>type</code> is not null and is a String type
    */
-  private static final boolean isJavaStringType(Type type) {
+  public static final boolean isJavaStringType(Type type) {
     if (!(type instanceof JClassType)) {
       return false;
     }
 
     JClassType classType = (JClassType) type;
     if (classType.getName().equals("java.lang.String")) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  /**
+   * Check whether a given Java type is Java StringBuilder type.
+   * @param type the given Java type
+   * @return true if <code>type</code> is not null and is a StringBuilder type
+   */
+  public static final boolean isJavaStringBuilderType(Type type) {
+    if (!(type instanceof JClassType)) {
+      return false;
+    }
+
+    JClassType classType = (JClassType) type;
+    if (classType.getName().equals("java.lang.StringBuilder")) {
       return true;
     } else {
       return false;
@@ -80,5 +98,22 @@ public class TypeChecker {
     return isJavaGenericStringType(callerObject.getExpressionType()) &&
         params.size() == 1 &&
         functionNameExpression.toString().equals("concat");
+  }
+
+  /**
+   * Check whether the given method is reverse() of String.
+   */
+  public static boolean isStringReverse(JReferencedMethodInvocationExpression invocation) {
+    if (!(invocation.getFunctionNameExpression() instanceof JIdExpression)) {
+      return false;
+    }
+
+    JIdExpression functionNameExpression = (JIdExpression) invocation.getFunctionNameExpression();
+    JIdExpression callerObject = invocation.getReferencedVariable();
+    List<JExpression> params = invocation.getParameterExpressions();
+
+    return isJavaStringBuilderType(callerObject.getExpressionType()) &&
+        params.size() == 0 &&
+        functionNameExpression.toString().equals("reverse");
   }
 }
