@@ -89,77 +89,6 @@ public class StringRelationAnalysisTransferRelation
   }
 
   /**
-   * Handle an assumption edge.
-   * We only consider the JBinaryExpression consisting of a function result and a boolean value.
-   * @param cfaEdge the given assumption edge to handle
-   * @param expression the expression on <code>cfaEdge</code>
-   * @param truthValue the assumption result of <code>expression</code>
-   * @return the new abstract state after this edge
-   */
-  @Override
-  protected StringRelationAnalysisState handleAssumption(
-      AssumeEdge cfaEdge, AExpression expression, boolean truthValue) {
-
-    if (!IsBinaryExpressionOfFunctionResultAndBoolean(expression)) {
-      return state;
-    }
-
-    JBinaryExpression binaryExpression = (JBinaryExpression) expression;
-    JExpression operand1 = binaryExpression.getOperand1();
-    JExpression operand2 = binaryExpression.getOperand2();
-
-    JReferencedMethodInvocationExpression invocation;
-    boolean boolValue;
-
-    if (AreFunctionReturnValueAndBooleanValue(operand1, operand2)) {
-      invocation = getFunctionInvocation(operand1);
-      boolValue = ((JBooleanLiteralExpression) operand2).getBoolean();
-    } else {
-      invocation = getFunctionInvocation(operand2);
-      boolValue = ((JBooleanLiteralExpression) operand1).getBoolean();
-    }
-
-    if (TypeChecker.isStringEquals(invocation)) {
-      return handleStringEquals(invocation, !(boolValue^truthValue));
-    }
-    // todo: startWith and endWith
-
-    return state;
-  }
-
-  /**
-   * Handle the assumption of method equals of String.
-   * If the assumption is true, then the comparison is between two variables,
-   * then we add an EQUAL relation between those two variables.
-   * @param invocation the invocation to method equals in assumption
-   * @param truthValue the boolean value of the assumption
-   * @return the new abstract state after this assumption
-   */
-  private StringRelationAnalysisState handleStringEquals(JReferencedMethodInvocationExpression invocation,
-                                                         boolean truthValue) {
-    if (!truthValue) {
-      return state;
-    }
-
-    JExpression parameter = invocation.getParameterExpressions().get(0);
-    if (!(parameter instanceof JIdExpression)) {
-      return state;
-    }
-
-    JIdExpression string1 = invocation.getReferencedVariable();
-    JIdExpression string2 = (JIdExpression) parameter;
-
-    MemoryLocation stringVar1 = StringVariableGenerator.getExpressionMemLocation(string1, functionName);
-    MemoryLocation stringVar2 = StringVariableGenerator.getExpressionMemLocation(string2, functionName);
-
-    StringRelationAnalysisState newState = StringRelationAnalysisState.deepCopyOf(state);
-    newState.addRelation(stringVar1, stringVar2, StringRelationLabel.EQUAL);
-    newState.addRelation(stringVar2, stringVar1, StringRelationLabel.EQUAL);
-
-    return newState;
-  }
-
-  /**
    * Handle a declaration edge for local string variables.
    * We just first kill the relation between that LHS variable and other variables,
    * and then add equation relation between LHS variable and RHS variable.
@@ -201,6 +130,45 @@ public class StringRelationAnalysisTransferRelation
     }
 
     return newState;
+  }
+
+  /**
+   * Handle an assumption edge.
+   * We only consider the JBinaryExpression consisting of a function result and a boolean value.
+   * @param cfaEdge the given assumption edge to handle
+   * @param expression the expression on <code>cfaEdge</code>
+   * @param truthValue the assumption result of <code>expression</code>
+   * @return the new abstract state after this edge
+   */
+  @Override
+  protected StringRelationAnalysisState handleAssumption(
+      AssumeEdge cfaEdge, AExpression expression, boolean truthValue) {
+
+    if (!IsBinaryExpressionOfFunctionResultAndBoolean(expression)) {
+      return state;
+    }
+
+    JBinaryExpression binaryExpression = (JBinaryExpression) expression;
+    JExpression operand1 = binaryExpression.getOperand1();
+    JExpression operand2 = binaryExpression.getOperand2();
+
+    JReferencedMethodInvocationExpression invocation;
+    boolean boolValue;
+
+    if (AreFunctionReturnValueAndBooleanValue(operand1, operand2)) {
+      invocation = getFunctionInvocation(operand1);
+      boolValue = ((JBooleanLiteralExpression) operand2).getBoolean();
+    } else {
+      invocation = getFunctionInvocation(operand2);
+      boolValue = ((JBooleanLiteralExpression) operand1).getBoolean();
+    }
+
+    if (TypeChecker.isStringEquals(invocation)) {
+      return handleStringEquals(invocation, !(boolValue^truthValue));
+    }
+    // todo: startWith and endWith
+
+    return state;
   }
 
   /**
@@ -282,37 +250,6 @@ public class StringRelationAnalysisTransferRelation
   }
 
   /**
-   * Handle a string concat invocation.
-   * We need to add the concat relation among those strings.
-   * @param returnValue the return value of the invocation
-   * @param invocation the given invocation
-   * @param curState the current abstract state
-   * @return the new abstract state after <code>invocation</code>
-   */
-  private StringRelationAnalysisState handleStringConcat(MemoryLocation returnValue,
-                                                         JReferencedMethodInvocationExpression invocation,
-                                                         StringRelationAnalysisState curState) {
-
-    JIdExpression caller = invocation.getReferencedVariable();
-    JExpression param = invocation.getParameterExpressions().get(0);
-    MemoryLocation callerVariable = StringVariableGenerator.getExpressionMemLocation(caller, functionName);
-    MemoryLocation paramVariable = StringVariableGenerator.getExpressionMemLocation(param, functionName);
-
-    if (callerVariable == null || paramVariable == null) {
-      return curState;
-    }
-
-    // kill the original relation with LHSVariable
-    curState.killVariableRelation(returnValue);
-
-    // add the new relation as callerVariable.concat(paramVariable) = LHSVariable
-    curState.addRelation(callerVariable, returnValue, StringRelationLabel.CONCAT_1);
-    curState.addRelation(paramVariable, returnValue, StringRelationLabel.CONCAT_2);
-
-    return curState;
-  }
-
-  /**
    * Handle an expression assignment statement.
    * If the variables are string,
    * we just first kill the relation between that LHS variable and other variables,
@@ -374,6 +311,69 @@ public class StringRelationAnalysisTransferRelation
     }
 
     return state;
+  }
+
+  /**
+   * Handle the assumption of method equals of String.
+   * If the assumption is true, then the comparison is between two variables,
+   * then we add an EQUAL relation between those two variables.
+   * @param invocation the invocation to method equals in assumption
+   * @param truthValue the boolean value of the assumption
+   * @return the new abstract state after this assumption
+   */
+  private StringRelationAnalysisState handleStringEquals(JReferencedMethodInvocationExpression invocation,
+                                                         boolean truthValue) {
+    if (!truthValue) {
+      return state;
+    }
+
+    JExpression parameter = invocation.getParameterExpressions().get(0);
+    if (!(parameter instanceof JIdExpression)) {
+      return state;
+    }
+
+    JIdExpression string1 = invocation.getReferencedVariable();
+    JIdExpression string2 = (JIdExpression) parameter;
+
+    MemoryLocation stringVar1 = StringVariableGenerator.getExpressionMemLocation(string1, functionName);
+    MemoryLocation stringVar2 = StringVariableGenerator.getExpressionMemLocation(string2, functionName);
+
+    StringRelationAnalysisState newState = StringRelationAnalysisState.deepCopyOf(state);
+    newState.addRelation(stringVar1, stringVar2, StringRelationLabel.EQUAL);
+    newState.addRelation(stringVar2, stringVar1, StringRelationLabel.EQUAL);
+
+    return newState;
+  }
+
+  /**
+   * Handle a string concat invocation.
+   * We need to add the concat relation among those strings.
+   * @param returnValue the return value of the invocation
+   * @param invocation the given invocation
+   * @param curState the current abstract state
+   * @return the new abstract state after <code>invocation</code>
+   */
+  private StringRelationAnalysisState handleStringConcat(MemoryLocation returnValue,
+                                                         JReferencedMethodInvocationExpression invocation,
+                                                         StringRelationAnalysisState curState) {
+
+    JIdExpression caller = invocation.getReferencedVariable();
+    JExpression param = invocation.getParameterExpressions().get(0);
+    MemoryLocation callerVariable = StringVariableGenerator.getExpressionMemLocation(caller, functionName);
+    MemoryLocation paramVariable = StringVariableGenerator.getExpressionMemLocation(param, functionName);
+
+    if (callerVariable == null || paramVariable == null) {
+      return curState;
+    }
+
+    // kill the original relation with LHSVariable
+    curState.killVariableRelation(returnValue);
+
+    // add the new relation as callerVariable.concat(paramVariable) = LHSVariable
+    curState.addRelation(callerVariable, returnValue, StringRelationLabel.CONCAT_1);
+    curState.addRelation(paramVariable, returnValue, StringRelationLabel.CONCAT_2);
+
+    return curState;
   }
 
   /**
