@@ -153,6 +153,7 @@ public class StringRelationAnalysisTransferRelation
 
     StringRelationAnalysisState newState = StringRelationAnalysisState.deepCopyOf(state);
     newState.addRelation(stringVar1, stringVar2, StringRelationLabel.EQUAL);
+    newState.addRelation(stringVar2, stringVar1, StringRelationLabel.EQUAL);
 
     return newState;
   }
@@ -193,6 +194,7 @@ public class StringRelationAnalysisTransferRelation
       MemoryLocation RHSVariable = StringVariableGenerator.getExpressionMemLocation(exp, functionName);
       if (RHSVariable != null) {
         newState.addRelation(LHSVariable, RHSVariable, StringRelationLabel.EQUAL);
+        newState.addRelation(RHSVariable, LHSVariable, StringRelationLabel.EQUAL);
         newState.copyInvocation(RHSVariable, LHSVariable);
       }
     }
@@ -260,12 +262,33 @@ public class StringRelationAnalysisTransferRelation
     return newState;
   }
 
-  private StringRelationAnalysisState handleStringConcat(MemoryLocation LHSVariable,
+  /**
+   * Handle a string concat invocation.
+   * We need to add the concat relation among those strings.
+   * @param returnValue the return value of the invocation
+   * @param invocation the given invocation
+   * @param curState the current abstract state
+   * @return the new abstract state after <code>invocation</code>
+   */
+  private StringRelationAnalysisState handleStringConcat(MemoryLocation returnValue,
                                                          JReferencedMethodInvocationExpression invocation,
                                                          StringRelationAnalysisState curState) {
-    JIdExpression callerObject = invocation.getReferencedVariable();
+    JIdExpression caller = invocation.getReferencedVariable();
     JExpression param = invocation.getParameterExpressions().get(0);
-    // Todo: consider constant
+    MemoryLocation callerVariable = StringVariableGenerator.getExpressionMemLocation(caller, functionName);
+    MemoryLocation paramVariable = StringVariableGenerator.getExpressionMemLocation(param, functionName);
+
+    if (callerVariable == null || paramVariable == null) {
+      return curState;
+    }
+
+    // kill the original relation with LHSVariable
+    curState.killVariableRelation(returnValue);
+
+    // add the new relation as callerVariable.concat(paramVariable) = LHSVariable
+    curState.addRelation(callerVariable, returnValue, StringRelationLabel.CONCAT_1);
+    curState.addRelation(paramVariable, returnValue, StringRelationLabel.CONCAT_2);
+
     return curState;
   }
 
@@ -303,6 +326,7 @@ public class StringRelationAnalysisTransferRelation
       MemoryLocation RHSVariable = StringVariableGenerator.getExpressionMemLocation(RHSExpression, functionName);
       if (RHSVariable != null) {
         newState.addRelation(LHSVariable, RHSVariable, StringRelationLabel.EQUAL);
+        newState.addRelation(RHSVariable, LHSVariable, StringRelationLabel.EQUAL);
         newState.copyInvocation(RHSVariable, LHSVariable);
       }
     }
