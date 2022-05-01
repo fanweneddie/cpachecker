@@ -168,6 +168,76 @@ public final class StringRelationAnalysisState
   }
 
   /**
+   * make the given memory location reverse to others.
+   * @param pMemoryLocation the given memory location
+   */
+  public void makeReverse(MemoryLocation pMemoryLocation) {
+    // consider the relation starting from pMemoryLocation
+    for (RelationEdge<MemoryLocation, StringRelationLabel> re :
+                relationGraph.outEdges(pMemoryLocation)) {
+     if (re.isSelfLoop()) {
+       continue;
+     }
+
+      StringRelationLabel label = re.getLabel();
+      switch (label) {
+        case EQUAL:
+          re.setLabel(StringRelationLabel.REVERSE_EQUAL);
+          break;
+        case REVERSE_EQUAL:
+          re.setLabel(StringRelationLabel.EQUAL);
+          break;
+        case CONCAT_1:
+          re.setLabel(StringRelationLabel.REVERSE_CONCAT_1);
+          break;
+        case CONCAT_2:
+          re.setLabel(StringRelationLabel.REVERSE_CONCAT_2);
+          break;
+        case REVERSE_CONCAT_1:
+          re.setLabel(StringRelationLabel.CONCAT_1);
+          break;
+        case REVERSE_CONCAT_2:
+          re.setLabel(StringRelationLabel.CONCAT_2);
+          break;
+        default:
+          break;
+      }
+    }
+
+    // consider the relation ending at pMemoryLocation
+    for (RelationEdge<MemoryLocation, StringRelationLabel> re :
+        relationGraph.outEdges(pMemoryLocation)) {
+      if (re.isSelfLoop()) {
+        continue;
+      }
+
+      StringRelationLabel label = re.getLabel();
+      switch (label) {
+        case EQUAL:
+          re.setLabel(StringRelationLabel.REVERSE_EQUAL);
+          break;
+        case REVERSE_EQUAL:
+          re.setLabel(StringRelationLabel.EQUAL);
+          break;
+        case CONCAT_1:
+          re.setLabel(StringRelationLabel.REVERSE_CONCAT_2);
+          break;
+        case CONCAT_2:
+          re.setLabel(StringRelationLabel.REVERSE_CONCAT_1);
+          break;
+        case REVERSE_CONCAT_1:
+          re.setLabel(StringRelationLabel.CONCAT_2);
+          break;
+        case REVERSE_CONCAT_2:
+          re.setLabel(StringRelationLabel.CONCAT_1);
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
+  /**
    * Remove the invocation assignment statement of a variable.
    */
   private void removeInvocation(MemoryLocation pMemoryLocation) {

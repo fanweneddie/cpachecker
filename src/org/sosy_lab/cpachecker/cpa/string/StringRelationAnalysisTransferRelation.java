@@ -11,10 +11,11 @@ SPDX-License-Identifier: Apache-2.0
 
 package org.sosy_lab.cpachecker.cpa.string;
 
-import java.util.List;
 import org.sosy_lab.cpachecker.cfa.ast.AAssignment;
 import org.sosy_lab.cpachecker.cfa.ast.ADeclaration;
 import org.sosy_lab.cpachecker.cfa.ast.AExpression;
+import org.sosy_lab.cpachecker.cfa.ast.AFunctionCallExpression;
+import org.sosy_lab.cpachecker.cfa.ast.AFunctionCallStatement;
 import org.sosy_lab.cpachecker.cfa.ast.AInitializer;
 import org.sosy_lab.cpachecker.cfa.ast.AInitializerExpression;
 import org.sosy_lab.cpachecker.cfa.ast.ARightHandSide;
@@ -34,14 +35,11 @@ import org.sosy_lab.cpachecker.cfa.model.AStatementEdge;
 import org.sosy_lab.cpachecker.cfa.model.AssumeEdge;
 import org.sosy_lab.cpachecker.cfa.model.BlankEdge;
 import org.sosy_lab.cpachecker.cfa.model.FunctionExitNode;
-import org.sosy_lab.cpachecker.cfa.types.Type;
-import org.sosy_lab.cpachecker.cfa.types.java.JClassType;
 import org.sosy_lab.cpachecker.core.defaults.ForwardingTransferRelation;
 import org.sosy_lab.cpachecker.core.defaults.precision.VariableTrackingPrecision;
 import org.sosy_lab.cpachecker.cpa.string.StringRelationAnalysisState.StringRelationLabel;
 import org.sosy_lab.cpachecker.exceptions.UnrecognizedCodeException;
 import org.sosy_lab.cpachecker.util.states.MemoryLocation;
-import org.sosy_lab.cpachecker.util.states.MemoryLocationVisitor;
 
 public class StringRelationAnalysisTransferRelation
     extends ForwardingTransferRelation<StringRelationAnalysisState, StringRelationAnalysisState, VariableTrackingPrecision> {
@@ -65,6 +63,7 @@ public class StringRelationAnalysisTransferRelation
    */
   @Override
   protected StringRelationAnalysisState handleBlankEdge(BlankEdge cfaEdge) {
+
     if (cfaEdge.getSuccessor() instanceof FunctionExitNode) {
       state = StringRelationAnalysisState.deepCopyOf(state);
       state.dropFrame(functionName);
@@ -82,6 +81,7 @@ public class StringRelationAnalysisTransferRelation
    */
   @Override
   protected StringRelationAnalysisState handleReturnStatementEdge(AReturnStatementEdge returnEdge) {
+
     state = StringRelationAnalysisState.deepCopyOf(state);
     state.dropFrame(functionName);
 
@@ -122,6 +122,7 @@ public class StringRelationAnalysisTransferRelation
     if (TypeChecker.isStringEquals(invocation)) {
       return handleStringEquals(invocation, !(boolValue^truthValue));
     }
+    // todo: startWith and endWith
 
     return state;
   }
@@ -203,7 +204,7 @@ public class StringRelationAnalysisTransferRelation
   }
 
   /**
-   * Handle a statement edge, which can be invocation assignment or expression assignment.
+   * Handle a statement edge, which can be assignment statement or function call statement.
    * We handle those cases accordingly.
    * @param cfaEdge the given statement edge
    * @param expression the expression of the statement
@@ -214,19 +215,36 @@ public class StringRelationAnalysisTransferRelation
   protected StringRelationAnalysisState handleStatementEdge(AStatementEdge cfaEdge, AStatement expression)
       throws UnrecognizedCodeException {
 
-    if (!(expression instanceof AAssignment)) {
-      return state;
+    if (expression instanceof AAssignment) {
+      AAssignment assignExpression = (AAssignment) expression;
+      return handleAssignmentStatement(assignExpression);
     }
 
-    AAssignment assignExpression = (AAssignment) expression;
+    if (expression instanceof AFunctionCallStatement) {
+      AFunctionCallStatement functionCall = (AFunctionCallStatement) expression;
+      return handleFunctionCallStatement(functionCall);
+    }
+
+    return state;
+  }
+
+  /**
+   * Handle an assignment statement, which can be with invocation or expression.
+   * We handle those cases accordingly.
+   * @param assignExpression the given assignment expression
+   * @return the new state after <code>assignExpression</code>
+   */
+  private StringRelationAnalysisState handleAssignmentStatement(AAssignment assignExpression) {
 
     if (assignExpression instanceof JMethodInvocationAssignmentStatement) {
       JMethodInvocationAssignmentStatement invocationAssignment =
-                    (JMethodInvocationAssignmentStatement) assignExpression;
+          (JMethodInvocationAssignmentStatement) assignExpression;
       return handleInvocationAssignmentStatement(invocationAssignment);
-    } else if (assignExpression instanceof JExpressionAssignmentStatement) {
+    }
+
+    if (assignExpression instanceof JExpressionAssignmentStatement) {
       JExpressionAssignmentStatement expressionAssignment =
-                    (JExpressionAssignmentStatement) assignExpression;
+          (JExpressionAssignmentStatement) assignExpression;
       return handleExpressionAssignmentStatement(expressionAssignment);
     }
 
@@ -241,6 +259,7 @@ public class StringRelationAnalysisTransferRelation
    */
   private StringRelationAnalysisState handleInvocationAssignmentStatement(
                           JMethodInvocationAssignmentStatement invocationAssignment) {
+
     AExpression op1 = invocationAssignment.getLeftHandSide();
     ARightHandSide op2 = invocationAssignment.getRightHandSide();
 
@@ -257,7 +276,7 @@ public class StringRelationAnalysisTransferRelation
 
     if (TypeChecker.isStringConcat(invocation)) {
       return handleStringConcat(LHSVariable, invocation, newState);
-    } // else reverse
+    }
 
     return newState;
   }
@@ -273,6 +292,7 @@ public class StringRelationAnalysisTransferRelation
   private StringRelationAnalysisState handleStringConcat(MemoryLocation returnValue,
                                                          JReferencedMethodInvocationExpression invocation,
                                                          StringRelationAnalysisState curState) {
+
     JIdExpression caller = invocation.getReferencedVariable();
     JExpression param = invocation.getParameterExpressions().get(0);
     MemoryLocation callerVariable = StringVariableGenerator.getExpressionMemLocation(caller, functionName);
@@ -303,6 +323,7 @@ public class StringRelationAnalysisTransferRelation
    */
   private StringRelationAnalysisState handleExpressionAssignmentStatement(
       JExpressionAssignmentStatement expressionAssignment) {
+
     JLeftHandSide LHS = expressionAssignment.getLeftHandSide();
     if (!(LHS instanceof JIdExpression)) {
       return state;
@@ -334,7 +355,46 @@ public class StringRelationAnalysisTransferRelation
     return newState;
   }
 
+  /**
+   * handle a function call statement.
+   * We currently just consider method reverse() of StringBuilder.
+   * @param functionCall the given function call
+   * @return the new state after <code>functionCall</code>
+   */
+  private StringRelationAnalysisState handleFunctionCallStatement(AFunctionCallStatement functionCall) {
 
+    AFunctionCallExpression functionCallExpression = functionCall.getFunctionCallExpression();
+    if (!(functionCallExpression instanceof JReferencedMethodInvocationExpression)) {
+      return state;
+    }
+
+    JReferencedMethodInvocationExpression invocation = (JReferencedMethodInvocationExpression) functionCallExpression;
+    if (TypeChecker.isStringReverse(invocation)) {
+      return handleStringReverse(invocation);
+    }
+
+    return state;
+  }
+
+  /**
+   * handle reverse() method of StringBuilder.
+   * @param invocation the invocation of reverse() method
+   * @return the new state after <code>invocation</code>
+   */
+  private StringRelationAnalysisState handleStringReverse(JReferencedMethodInvocationExpression invocation) {
+
+    JIdExpression callerObject = invocation.getReferencedVariable();
+    MemoryLocation callerVariable = StringVariableGenerator.getExpressionMemLocation(callerObject, functionName);
+
+    if (callerVariable == null) {
+      return state;
+    }
+
+    StringRelationAnalysisState newState = StringRelationAnalysisState.deepCopyOf(state);
+    newState.makeReverse(callerVariable);
+
+    return newState;
+  }
 
   /**
    * Check whether the given expression is a JBinaryExpression

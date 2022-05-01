@@ -37,7 +37,7 @@ public class RelationEdge<N, L> {
   /**
    * The label on the edge that shows the type of relation
    */
-  private final L label;
+  private L label;
 
   public RelationEdge(
       N pStartNode,
@@ -75,6 +75,13 @@ public class RelationEdge<N, L> {
   }
 
   /**
+   * Set a new label.
+   */
+  public void setLabel(L pLabel) {
+    label = pLabel;
+  }
+
+  /**
    * Check whether the fields are valid, i.e. whether it has null field.
    */
   public boolean valid() {
@@ -86,6 +93,13 @@ public class RelationEdge<N, L> {
    */
   public boolean connects(N node1, N node2) {
     return startsFrom(node1) && endsAt(node2);
+  }
+
+  /**
+   * Check whether this edge is a self loop.
+   */
+  public boolean isSelfLoop() {
+    return valid() && startNode == endNode;
   }
 
   /**
