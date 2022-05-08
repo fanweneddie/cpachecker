@@ -29,6 +29,7 @@ import org.sosy_lab.cpachecker.cfa.ast.java.JIdExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JLeftHandSide;
 import org.sosy_lab.cpachecker.cfa.ast.java.JMethodInvocationAssignmentStatement;
 import org.sosy_lab.cpachecker.cfa.ast.java.JReferencedMethodInvocationExpression;
+import org.sosy_lab.cpachecker.cfa.ast.java.JStringLiteralExpression;
 import org.sosy_lab.cpachecker.cfa.model.ADeclarationEdge;
 import org.sosy_lab.cpachecker.cfa.model.AReturnStatementEdge;
 import org.sosy_lab.cpachecker.cfa.model.AStatementEdge;
@@ -44,12 +45,8 @@ import org.sosy_lab.cpachecker.util.states.MemoryLocation;
 public class StringRelationAnalysisTransferRelation
     extends ForwardingTransferRelation<StringRelationAnalysisState, StringRelationAnalysisState, VariableTrackingPrecision> {
 
-  public StringRelationAnalysisTransferRelation(
-      StringRelationAnalysisState pState, VariableTrackingPrecision pPrecision, String pFunctionName) {
+  public StringRelationAnalysisTransferRelation() {
     super();
-    state = pState;
-    precision = pPrecision;
-    functionName = pFunctionName;
   }
 
   /**
@@ -278,8 +275,8 @@ public class StringRelationAnalysisTransferRelation
     // kill the original relation with LHSVariable
     newState.killVariableRelation(LHSVariable);
 
-    // if RHS is a variable, add the equation relation between LHSVariable and RHSVariable
-    if (RHS instanceof JIdExpression) {
+    // if RHS is a string variable or a constant, add the equation relation between LHSVariable and RHSVariable
+    if (RHS instanceof JIdExpression || RHS instanceof JStringLiteralExpression) {
       JIdExpression RHSExpression = (JIdExpression) RHS;
       MemoryLocation RHSVariable = StringVariableGenerator.getExpressionMemLocation(RHSExpression, functionName);
       if (RHSVariable != null) {
