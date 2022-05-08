@@ -122,6 +122,7 @@ import org.sosy_lab.cpachecker.cpa.value.type.NumericValue;
 import org.sosy_lab.cpachecker.cpa.value.type.Value;
 import org.sosy_lab.cpachecker.cpa.value.type.Value.UnknownValue;
 import org.sosy_lab.cpachecker.exceptions.CPATransferException;
+import org.sosy_lab.cpachecker.exceptions.UnrecognizedCFAEdgeException;
 import org.sosy_lab.cpachecker.exceptions.UnrecognizedCodeException;
 import org.sosy_lab.cpachecker.exceptions.UnsupportedCodeException;
 import org.sosy_lab.cpachecker.util.BuiltinFloatFunctions;
@@ -331,6 +332,114 @@ public class ValueAnalysisTransferRelation
     if (stats != null) {
       stats.incrementIterations();
     }
+  }
+
+  /**
+   * The transfer function that does nothing, where the successor is still current state.
+   * @param abstractState current abstract state
+   * @param abstractPrecision precision for abstract state
+   * @param cfaEdge the edge for which the successors should be computed
+   * @return a collection of successor (which is still <code>abstractState</code>)
+   */
+  @Override
+  public Collection<ValueAnalysisState> getAbstractSuccessorsForEdge(
+      AbstractState abstractState, Precision abstractPrecision, CFAEdge cfaEdge) {
+
+    setInfo(abstractState, abstractPrecision, cfaEdge);
+
+    final Collection<ValueAnalysisState> preCheck = preCheck(state, precision);
+    if (preCheck != null) {
+      return preCheck;
+    }
+
+    ValueAnalysisState successor = state;
+    final Collection<ValueAnalysisState> result = postProcessing(successor, cfaEdge);
+    resetInfo();
+    return result;
+  }
+
+  /**
+   * get the successors after the given edge in strengthening stage.
+   * @param abstractState current abstract state
+   * @param abstractPrecision precision for abstract state
+   * @param cfaEdge the edge for which the successors should be computed
+   * @return a collection of successors of <code>abstractState</code> after <code>cfaEdge</code>
+   */
+  public Collection<ValueAnalysisState> getAbstractSuccessorsForEdgeInStrengthen(
+      final AbstractState abstractState, final Precision abstractPrecision, final CFAEdge cfaEdge)
+      throws CPATransferException, InterruptedException {
+
+    setInfo(abstractState, abstractPrecision, cfaEdge);
+
+    final Collection<ValueAnalysisState> preCheck = preCheck(state, precision);
+    if (preCheck != null) { return preCheck; }
+
+    final ValueAnalysisState successor;
+
+    switch (cfaEdge.getEdgeType()) {
+
+      case AssumeEdge:
+        final AssumeEdge assumption = (AssumeEdge) cfaEdge;
+        successor =
+            handleAssumption(
+                assumption, assumption.getExpression(), assumption.getTruthAssumption());
+        break;
+
+      case FunctionCallEdge:
+        final FunctionCallEdge fnkCall = (FunctionCallEdge) cfaEdge;
+        final FunctionEntryNode succ = fnkCall.getSuccessor();
+        final String calledFunctionName = succ.getFunctionName();
+        successor =
+            handleFunctionCallEdge(
+                fnkCall, fnkCall.getArguments(), succ.getFunctionParameters(), calledFunctionName);
+        break;
+
+      case FunctionReturnEdge:
+        final String callerFunctionName = cfaEdge.getSuccessor().getFunctionName();
+        final FunctionReturnEdge fnkReturnEdge = (FunctionReturnEdge) cfaEdge;
+        final FunctionSummaryEdge summaryEdge = fnkReturnEdge.getSummaryEdge();
+        successor =
+            handleFunctionReturnEdge(
+                fnkReturnEdge, summaryEdge, summaryEdge.getExpression(), callerFunctionName);
+        break;
+
+      case DeclarationEdge:
+        final ADeclarationEdge declarationEdge = (ADeclarationEdge) cfaEdge;
+        successor = handleDeclarationEdge(declarationEdge, declarationEdge.getDeclaration());
+        break;
+
+      case StatementEdge:
+        final AStatementEdge statementEdge = (AStatementEdge) cfaEdge;
+        successor = handleStatementEdge(statementEdge, statementEdge.getStatement());
+        break;
+
+      case ReturnStatementEdge:
+        // this statement is a function return, e.g. return (a);
+        // note that this is different from return edge,
+        // this is a statement edge, which leads the function to the
+        // last node of its CFA, where return edge is from that last node
+        // to the return site of the caller function
+        final AReturnStatementEdge returnEdge = (AReturnStatementEdge) cfaEdge;
+        successor = handleReturnStatementEdge(returnEdge);
+        break;
+
+      case BlankEdge:
+        successor = handleBlankEdge((BlankEdge) cfaEdge);
+        break;
+
+      case CallToReturnEdge:
+        successor = handleFunctionSummaryEdge((FunctionSummaryEdge) cfaEdge);
+        break;
+
+      default:
+        throw new UnrecognizedCFAEdgeException(cfaEdge);
+    }
+
+    final Collection<ValueAnalysisState> result = postProcessing(successor, cfaEdge);
+
+    resetInfo();
+
+    return result;
   }
 
   @Override
@@ -1301,6 +1410,17 @@ public class ValueAnalysisTransferRelation
       Precision pPrecision)
       throws CPATransferException {
     assert pElement instanceof ValueAnalysisState;
+
+    // get the successor of current abstract state after the cfaEdge
+    try {
+      Collection<ValueAnalysisState> successors =
+          getAbstractSuccessorsForEdgeInStrengthen(pElement, pPrecision, pCfaEdge);
+      if (successors.size() == 1) {
+        pElement = successors.iterator().next();
+      }
+    } catch (Exception e) {
+      logger.log(Level.SEVERE, "Exception in getting successors during strengthening stage");
+    }
 
     List<ValueAnalysisState> toStrengthen = new ArrayList<>();
     List<ValueAnalysisState> result = new ArrayList<>();
