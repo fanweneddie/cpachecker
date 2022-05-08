@@ -120,7 +120,7 @@ public final class StringRelationAnalysisState
    * @param pStringRelationLabel the given label, which must not be null
    * @return true if the graph is modified.
    */
-  public boolean addRelation(MemoryLocation pMemoryLocation1,
+  private boolean addRelation(MemoryLocation pMemoryLocation1,
                              MemoryLocation pMemoryLocation2,
                              StringRelationLabel pStringRelationLabel) {
     assertNotNull(pMemoryLocation1);
@@ -168,6 +168,34 @@ public final class StringRelationAnalysisState
   }
 
   /**
+   * make two memory locations equal.
+   * @param pMemoryLocation1 the first given memory location
+   * @param pMemoryLocation2 the second given memory location
+   */
+  public void makeEqual(MemoryLocation pMemoryLocation1,
+                        MemoryLocation pMemoryLocation2) {
+    addRelation(pMemoryLocation1, pMemoryLocation2, StringRelationLabel.EQUAL);
+    addRelation(pMemoryLocation2, pMemoryLocation1, StringRelationLabel.EQUAL);
+  }
+
+  /**
+   * make the first memory location as the concatenation of the second and third memory location.
+   * @param pMemoryLocationTo the first given memory location, which is the result of concatenation
+   * @param pMemoryLocationFrom1 the second given memory location, which is the prefix of concatenation
+   * @param pMemoryLocationFrom2 the third given memory location, which is the suffix of concatenation
+   */
+  public void makeConcat(MemoryLocation pMemoryLocationTo,
+                         MemoryLocation pMemoryLocationFrom1,
+                         MemoryLocation pMemoryLocationFrom2) {
+    // add relation between pMemoryLocationTo with pMemoryLocationFrom1 and pMemoryLocationFrom2
+    addRelation(pMemoryLocationFrom1, pMemoryLocationTo, StringRelationLabel.CONCAT_AS_PREFIX);
+    addRelation(pMemoryLocationFrom2, pMemoryLocationTo, StringRelationLabel.CONCAT_AS_SUFFIX);
+    // add relation between pMemoryLocationFrom1 with pMemoryLocationFrom2
+    addRelation(pMemoryLocationFrom1, pMemoryLocationFrom2, StringRelationLabel.CONCAT_WITH);
+    addRelation(pMemoryLocationFrom2, pMemoryLocationFrom1, StringRelationLabel.CONCAT_WITH);
+  }
+
+  /**
    * make the given memory location reverse to others.
    * @param pMemoryLocation the given memory location
    */
@@ -187,17 +215,17 @@ public final class StringRelationAnalysisState
         case REVERSE_EQUAL:
           re.setLabel(StringRelationLabel.EQUAL);
           break;
-        case CONCAT_1:
-          re.setLabel(StringRelationLabel.REVERSE_CONCAT_1);
+        case CONCAT_AS_PREFIX:
+          re.setLabel(StringRelationLabel.REVERSE_CONCAT_AS_PREFIX);
           break;
-        case CONCAT_2:
-          re.setLabel(StringRelationLabel.REVERSE_CONCAT_2);
+        case CONCAT_AS_SUFFIX:
+          re.setLabel(StringRelationLabel.REVERSE_CONCAT_AS_SUFFIX);
           break;
-        case REVERSE_CONCAT_1:
-          re.setLabel(StringRelationLabel.CONCAT_1);
+        case REVERSE_CONCAT_AS_PREFIX:
+          re.setLabel(StringRelationLabel.CONCAT_AS_PREFIX);
           break;
-        case REVERSE_CONCAT_2:
-          re.setLabel(StringRelationLabel.CONCAT_2);
+        case REVERSE_CONCAT_AS_SUFFIX:
+          re.setLabel(StringRelationLabel.CONCAT_AS_SUFFIX);
           break;
         default:
           break;
@@ -219,17 +247,17 @@ public final class StringRelationAnalysisState
         case REVERSE_EQUAL:
           re.setLabel(StringRelationLabel.EQUAL);
           break;
-        case CONCAT_1:
-          re.setLabel(StringRelationLabel.REVERSE_CONCAT_2);
+        case CONCAT_AS_PREFIX:
+          re.setLabel(StringRelationLabel.REVERSE_CONCAT_AS_SUFFIX);
           break;
-        case CONCAT_2:
-          re.setLabel(StringRelationLabel.REVERSE_CONCAT_1);
+        case CONCAT_AS_SUFFIX:
+          re.setLabel(StringRelationLabel.REVERSE_CONCAT_AS_PREFIX);
           break;
-        case REVERSE_CONCAT_1:
-          re.setLabel(StringRelationLabel.CONCAT_2);
+        case REVERSE_CONCAT_AS_PREFIX:
+          re.setLabel(StringRelationLabel.CONCAT_AS_SUFFIX);
           break;
-        case REVERSE_CONCAT_2:
-          re.setLabel(StringRelationLabel.CONCAT_1);
+        case REVERSE_CONCAT_AS_SUFFIX:
+          re.setLabel(StringRelationLabel.CONCAT_AS_PREFIX);
           break;
         default:
           break;
@@ -354,18 +382,20 @@ public final class StringRelationAnalysisState
    * In the comments below, we suppose the variable represented by starting node as x,
    * and the variable represented by ending node as y.
    */
-    enum StringRelationLabel {
+  enum StringRelationLabel {
     /** x and y are equal */
     EQUAL,
     /** x and y are reverse to each other */
     REVERSE_EQUAL,
     /** y = x concat z, so x is y's prefix */
-    CONCAT_1,
+    CONCAT_AS_PREFIX,
     /** y = z concat x, so x is y's suffix */
-    CONCAT_2,
+    CONCAT_AS_SUFFIX,
     /** y = (reverse x) concat z, so reverse x is y's prefix */
-    REVERSE_CONCAT_1,
+    REVERSE_CONCAT_AS_PREFIX,
     /** y = z concat (reverse x), so reverse x is y's suffix */
-    REVERSE_CONCAT_2
+    REVERSE_CONCAT_AS_SUFFIX,
+    /** z = (x or reverse x) concat (y or reverse y), so x and y concatenate with each other */
+    CONCAT_WITH
   }
 }

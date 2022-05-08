@@ -120,8 +120,7 @@ public class StringRelationAnalysisTransferRelation
       AExpression exp = ((AInitializerExpression) init).getExpression();
       MemoryLocation RHSVariable = StringVariableGenerator.getExpressionMemLocation(exp, functionName);
       if (RHSVariable != null) {
-        newState.addRelation(LHSVariable, RHSVariable, StringRelationLabel.EQUAL);
-        newState.addRelation(RHSVariable, LHSVariable, StringRelationLabel.EQUAL);
+        newState.makeEqual(LHSVariable, RHSVariable);
         newState.copyInvocation(RHSVariable, LHSVariable);
       }
     }
@@ -280,8 +279,7 @@ public class StringRelationAnalysisTransferRelation
       JIdExpression RHSExpression = (JIdExpression) RHS;
       MemoryLocation RHSVariable = StringVariableGenerator.getExpressionMemLocation(RHSExpression, functionName);
       if (RHSVariable != null) {
-        newState.addRelation(LHSVariable, RHSVariable, StringRelationLabel.EQUAL);
-        newState.addRelation(RHSVariable, LHSVariable, StringRelationLabel.EQUAL);
+        newState.makeEqual(LHSVariable, RHSVariable);
         newState.copyInvocation(RHSVariable, LHSVariable);
       }
     }
@@ -336,8 +334,7 @@ public class StringRelationAnalysisTransferRelation
     MemoryLocation stringVar2 = StringVariableGenerator.getExpressionMemLocation(string2, functionName);
 
     StringRelationAnalysisState newState = StringRelationAnalysisState.deepCopyOf(state);
-    newState.addRelation(stringVar1, stringVar2, StringRelationLabel.EQUAL);
-    newState.addRelation(stringVar2, stringVar1, StringRelationLabel.EQUAL);
+    newState.makeEqual(stringVar1, stringVar2);
 
     return newState;
   }
@@ -367,8 +364,7 @@ public class StringRelationAnalysisTransferRelation
     curState.killVariableRelation(returnValue);
 
     // add the new relation as callerVariable.concat(paramVariable) = LHSVariable
-    curState.addRelation(callerVariable, returnValue, StringRelationLabel.CONCAT_1);
-    curState.addRelation(paramVariable, returnValue, StringRelationLabel.CONCAT_2);
+    curState.makeConcat(callerVariable, paramVariable, returnValue);
 
     return curState;
   }
