@@ -65,6 +65,7 @@ import org.sosy_lab.cpachecker.cfa.ast.java.JIdExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JIntegerLiteralExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JMethodInvocationExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JNullLiteralExpression;
+import org.sosy_lab.cpachecker.cfa.ast.java.JReferencedMethodInvocationExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JRightHandSide;
 import org.sosy_lab.cpachecker.cfa.ast.java.JRightHandSideVisitor;
 import org.sosy_lab.cpachecker.cfa.ast.java.JRunTimeTypeEqualsType;
@@ -87,6 +88,7 @@ import org.sosy_lab.cpachecker.cfa.types.java.JArrayType;
 import org.sosy_lab.cpachecker.cfa.types.java.JBasicType;
 import org.sosy_lab.cpachecker.cfa.types.java.JSimpleType;
 import org.sosy_lab.cpachecker.cfa.types.java.JType;
+import org.sosy_lab.cpachecker.cpa.string.TypeChecker;
 import org.sosy_lab.cpachecker.cpa.value.symbolic.type.SymbolicExpression;
 import org.sosy_lab.cpachecker.cpa.value.symbolic.type.SymbolicValue;
 import org.sosy_lab.cpachecker.cpa.value.symbolic.type.SymbolicValueFactory;
@@ -2138,8 +2140,29 @@ public abstract class AbstractExpressionValueVisitor
         pJCastExpression.getFileLocation());
   }
 
+  /**
+   * Get the return value of a function call.
+   * If the function is nondetString(), then we return an automaton that
+   * accepts any string value;
+   * If the function is concat(), then we ...
+   * ...
+   */
   @Override
   public Value visit(JMethodInvocationExpression pAFunctionCallExpression) {
+    if (pAFunctionCallExpression instanceof JReferencedMethodInvocationExpression) {
+      JReferencedMethodInvocationExpression invocation =
+          (JReferencedMethodInvocationExpression) pAFunctionCallExpression;
+      // consider nondetString()
+      if (TypeChecker.isNonDetString(invocation)) {
+        return getNonDeterministicValue();
+      }
+      // consider concat()
+      if (TypeChecker.isStringConcat(invocation)) {
+        return getConcatValue(invocation);
+      }
+      // consider reverse()
+    }
+
     return UnknownValue.getInstance();
   }
 
@@ -2661,5 +2684,22 @@ public abstract class AbstractExpressionValueVisitor
     public IllegalOperationException(String msg, Throwable cause) {
       super(msg, cause);
     }
+  }
+
+  private Value getNonDeterministicValue() {
+    return StringValue.newStringValue(null);
+  }
+
+  private Value getConcatValue(JReferencedMethodInvocationExpression invocation) {
+    JIdExpression caller = invocation.getReferencedVariable();
+    JExpression param = invocation.getParameterExpressions().get(0);
+
+    // get the value from valueInfo
+    Value callerValue = evaluate((JRightHandSide) caller, (JType) caller.getExpressionType());
+    assert (callerValue instanceof StringValue);
+    Value paramValue = evaluate((JRightHandSide) param, (JType) param.getExpressionType());
+    assert (paramValue instanceof StringValue);
+
+    return StringValue.concat((StringValue) callerValue, (StringValue) paramValue);
   }
 }

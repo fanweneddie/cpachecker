@@ -69,6 +69,22 @@ public class TypeChecker {
   }
 
   /**
+   * Check whether the given method is nondetString() of Verifier
+   */
+  public static boolean isNonDetString(JReferencedMethodInvocationExpression invocation) {
+    if (!(invocation.getFunctionNameExpression() instanceof JIdExpression) ||
+        !(invocation.getReferencedVariable() instanceof JIdExpression)) {
+      return false;
+    }
+
+    JIdExpression functionNameExpression = (JIdExpression) invocation.getFunctionNameExpression();
+    JIdExpression qualifier = (JIdExpression) invocation.getReferencedVariable();
+
+    return qualifier.toString().equals("Verifier") &&
+        functionNameExpression.toString().equals("nondetString");
+  }
+
+  /**
    * Check whether the given method is equals() of String.
    */
   public static boolean isStringEquals(JReferencedMethodInvocationExpression invocation) {
