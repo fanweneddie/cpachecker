@@ -19,6 +19,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.sosy_lab.cpachecker.cfa.types.c.CType;
 import org.sosy_lab.cpachecker.util.automaton4string.Automaton;
 import org.sosy_lab.cpachecker.util.automaton4string.BasicAutomata;
+import org.sosy_lab.cpachecker.util.automaton4string.SpecialOperations;
 
 /**
  * This class represents a string value.
@@ -67,8 +68,10 @@ public class StringValue implements Value {
    */
   public static StringValue reverse(StringValue pStringValue) {
     assertNotNull(pStringValue);
+    assertNotNull(pStringValue.valueDomain);
 
-    return null;
+    SpecialOperations.reverse(pStringValue.valueDomain);
+    return pStringValue;
   }
 
   /**
@@ -83,7 +86,7 @@ public class StringValue implements Value {
     assertNotNull(pStringValue1.valueDomain);
     assertNotNull(pStringValue2.valueDomain);
 
-    Automaton newValueDomain =  Automaton.concatenate(Arrays.asList(pStringValue1.valueDomain,
+    Automaton newValueDomain = Automaton.concatenate(Arrays.asList(pStringValue1.valueDomain,
                                                                     pStringValue2.valueDomain));
     return new StringValue(newValueDomain);
   }

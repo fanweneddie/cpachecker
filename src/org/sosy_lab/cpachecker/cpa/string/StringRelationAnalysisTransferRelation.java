@@ -11,6 +11,7 @@ SPDX-License-Identifier: Apache-2.0
 
 package org.sosy_lab.cpachecker.cpa.string;
 
+import java.util.List;
 import org.sosy_lab.cpachecker.cfa.ast.AAssignment;
 import org.sosy_lab.cpachecker.cfa.ast.ADeclaration;
 import org.sosy_lab.cpachecker.cfa.ast.AExpression;
@@ -23,6 +24,7 @@ import org.sosy_lab.cpachecker.cfa.ast.AStatement;
 import org.sosy_lab.cpachecker.cfa.ast.AVariableDeclaration;
 import org.sosy_lab.cpachecker.cfa.ast.java.JBinaryExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JBooleanLiteralExpression;
+import org.sosy_lab.cpachecker.cfa.ast.java.JClassInstanceCreation;
 import org.sosy_lab.cpachecker.cfa.ast.java.JExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JExpressionAssignmentStatement;
 import org.sosy_lab.cpachecker.cfa.ast.java.JIdExpression;
@@ -38,7 +40,6 @@ import org.sosy_lab.cpachecker.cfa.model.BlankEdge;
 import org.sosy_lab.cpachecker.cfa.model.FunctionExitNode;
 import org.sosy_lab.cpachecker.core.defaults.ForwardingTransferRelation;
 import org.sosy_lab.cpachecker.core.defaults.precision.VariableTrackingPrecision;
-import org.sosy_lab.cpachecker.cpa.string.StringRelationAnalysisState.StringRelationLabel;
 import org.sosy_lab.cpachecker.exceptions.UnrecognizedCodeException;
 import org.sosy_lab.cpachecker.util.states.MemoryLocation;
 
@@ -228,23 +229,37 @@ public class StringRelationAnalysisTransferRelation
     ARightHandSide op2 = invocationAssignment.getRightHandSide();
 
     if (!(op1 instanceof JIdExpression) ||
-        !(op2 instanceof JReferencedMethodInvocationExpression)) {
+        !(op2 instanceof JClassInstanceCreation ||
+        op2 instanceof JReferencedMethodInvocationExpression)) {
       return state;
     }
 
     MemoryLocation LHSVariable = StringVariableGenerator.getExpressionMemLocation(op1, functionName);
-    JReferencedMethodInvocationExpression invocation = (JReferencedMethodInvocationExpression) op2;
-
     StringRelationAnalysisState newState = StringRelationAnalysisState.deepCopyOf(state);
-    newState.setInvocation(LHSVariable, invocation);
 
-    if (TypeChecker.isNonDetString(invocation)) {
-      newState.addVariable(LHSVariable);
-      return newState;
+    // consider new statement
+    if (op2 instanceof JClassInstanceCreation) {
+      JClassInstanceCreation initialization = (JClassInstanceCreation) op2;
+
+      if (TypeChecker.isNewStringBuilder(initialization)) {
+        newState.addVariable(LHSVariable);
+        return handleStringBuilderInitialization(LHSVariable, initialization, newState);
+      }
     }
 
-    if (TypeChecker.isStringConcat(invocation)) {
-      return handleStringConcat(LHSVariable, invocation, newState);
+    // consider other function call statements
+    if (op2 instanceof JReferencedMethodInvocationExpression) {
+      JReferencedMethodInvocationExpression invocation = (JReferencedMethodInvocationExpression) op2;
+      newState.setInvocation(LHSVariable, invocation);
+
+      if (TypeChecker.isNonDetString(invocation)) {
+        newState.addVariable(LHSVariable);
+        return newState;
+      }
+
+      if (TypeChecker.isStringConcat(invocation)) {
+        return handleStringConcat(LHSVariable, invocation, newState);
+      }
     }
 
     return newState;
@@ -399,6 +414,29 @@ public class StringRelationAnalysisTransferRelation
     newState.makeReverse(callerVariable);
 
     return newState;
+  }
+
+  /**
+   * handle the initialization of StringBuilder.
+   * @param returnValue the return value of the initialization
+   * @param initialization the given initialization
+   * @param curState the current abstract state
+   * @return the new state after <code>initialization</code>
+   */
+  private StringRelationAnalysisState handleStringBuilderInitialization(MemoryLocation returnValue,
+                                                                        JClassInstanceCreation initialization,
+                                                                        StringRelationAnalysisState curState) {
+
+    List<JExpression> params = initialization.getParameterExpressions();
+    if (params.size() > 0) {
+      JExpression param = params.get(0);
+      if (param instanceof JIdExpression || param instanceof JStringLiteralExpression) {
+        MemoryLocation paramVariable = StringVariableGenerator.getExpressionMemLocation(param, functionName);
+        curState.makeEqual(returnValue, paramVariable);
+      }
+    }
+
+    return curState;
   }
 
   /**

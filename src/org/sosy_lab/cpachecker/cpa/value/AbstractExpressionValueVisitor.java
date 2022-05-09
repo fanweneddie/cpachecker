@@ -2161,6 +2161,9 @@ public abstract class AbstractExpressionValueVisitor
         return getConcatValue(invocation);
       }
       // consider reverse()
+      if (TypeChecker.isStringReverse(invocation)) {
+        return getReverseValue(invocation);
+      }
     }
 
     return UnknownValue.getInstance();
@@ -2168,6 +2171,10 @@ public abstract class AbstractExpressionValueVisitor
 
   @Override
   public Value visit(JClassInstanceCreation pJClassInstanceCreation) {
+    if (TypeChecker.isNewStringBuilder(pJClassInstanceCreation)) {
+      return getNewStringValue(pJClassInstanceCreation);
+    }
+
     return UnknownValue.getInstance();
   }
 
@@ -2686,20 +2693,61 @@ public abstract class AbstractExpressionValueVisitor
     }
   }
 
+  /**
+   * Return the value of a non-deterministic string.
+   */
   private Value getNonDeterministicValue() {
     return StringValue.newStringValue(null);
   }
 
+  /**
+   * Return the value of an empty string.
+   */
+  private Value getEmptyStringValue() {
+    return StringValue.newStringValue("");
+  }
+
+  /**
+   * Return the value of a string concatenation.
+   */
   private Value getConcatValue(JReferencedMethodInvocationExpression invocation) {
     JIdExpression caller = invocation.getReferencedVariable();
     JExpression param = invocation.getParameterExpressions().get(0);
 
-    // get the value from valueInfo
     Value callerValue = evaluate((JRightHandSide) caller, (JType) caller.getExpressionType());
     assert (callerValue instanceof StringValue);
     Value paramValue = evaluate((JRightHandSide) param, (JType) param.getExpressionType());
     assert (paramValue instanceof StringValue);
 
     return StringValue.concat((StringValue) callerValue, (StringValue) paramValue);
+  }
+
+  /**
+   * Return the value of a string reverse.
+   */
+  private Value getReverseValue(JReferencedMethodInvocationExpression invocation) {
+    JIdExpression caller = invocation.getReferencedVariable();
+    Value callerValue = evaluate((JRightHandSide) caller, (JType) caller.getExpressionType());
+    assert (callerValue instanceof StringValue);
+
+    return StringValue.reverse((StringValue) callerValue);
+  }
+
+  /**
+   * Return the value of a new string.
+   */
+  private Value getNewStringValue(JClassInstanceCreation initialization) {
+    List<JExpression> params = initialization.getParameterExpressions();
+    // return a copy of parameter
+    if (params.size() > 0) {
+      JExpression param = params.get(0);
+      Value paramValue = evaluate((JRightHandSide) param, (JType) param.getExpressionType());
+      assert (paramValue instanceof StringValue);
+      return paramValue;
+    }
+    // return an empty string
+    else {
+      return getEmptyStringValue();
+    }
   }
 }

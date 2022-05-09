@@ -12,11 +12,14 @@ SPDX-License-Identifier: Apache-2.0
 package org.sosy_lab.cpachecker.cpa.string;
 
 import java.util.List;
+import org.sosy_lab.cpachecker.cfa.ast.java.JClassInstanceCreation;
+import org.sosy_lab.cpachecker.cfa.ast.java.JConstructorDeclaration;
 import org.sosy_lab.cpachecker.cfa.ast.java.JExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JIdExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JReferencedMethodInvocationExpression;
 import org.sosy_lab.cpachecker.cfa.types.Type;
 import org.sosy_lab.cpachecker.cfa.types.java.JClassType;
+import org.sosy_lab.cpachecker.cfa.types.java.JConstructorType;
 
 /**
  * This class provides static methods to check a type or a method type.
@@ -131,5 +134,23 @@ public class TypeChecker {
     return isJavaStringBuilderType(callerObject.getExpressionType()) &&
         params.size() == 0 &&
         functionNameExpression.toString().equals("reverse");
+  }
+
+  /**
+   * Check whether the given method is the initialization of StringBuilder.
+   */
+  public static boolean isNewStringBuilder(JClassInstanceCreation initialization) {
+    if (initialization == null) {
+      return false;
+    }
+
+    JConstructorDeclaration declaration = initialization.getDeclaration();
+    JConstructorType type = declaration.getType();
+
+    if (type == null || type.getReturnType() == null) {
+      return false;
+    }
+
+    return type.getReturnType().getName().equals("java.lang.StringBuilder");
   }
 }

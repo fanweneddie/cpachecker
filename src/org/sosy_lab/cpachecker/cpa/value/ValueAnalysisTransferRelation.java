@@ -72,6 +72,7 @@ import org.sosy_lab.cpachecker.cfa.ast.java.JBinaryExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JFieldDeclaration;
 import org.sosy_lab.cpachecker.cfa.ast.java.JIdExpression;
+import org.sosy_lab.cpachecker.cfa.ast.java.JReferencedMethodInvocationExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JRightHandSide;
 import org.sosy_lab.cpachecker.cfa.ast.java.JSimpleDeclaration;
 import org.sosy_lab.cpachecker.cfa.model.ADeclarationEdge;
@@ -967,7 +968,7 @@ public class ValueAnalysisTransferRelation
       return handleAssignment((AAssignment)expression, cfaEdge);
 
     } else if (expression instanceof AFunctionCallStatement) {
-      // external function call - do nothing
+      return handleFunctionCall((AFunctionCallStatement) expression);
 
     } else if (expression instanceof AExpressionStatement) {
       // there is such a case
@@ -1108,6 +1109,22 @@ public class ValueAnalysisTransferRelation
     }
 
     return state; // the default return-value is the old state
+  }
+
+  private ValueAnalysisState handleFunctionCall(AFunctionCallStatement functionCall)
+      throws UnrecognizedCodeException {
+    AFunctionCallExpression functionCallExpression = functionCall.getFunctionCallExpression();
+    if (!(functionCallExpression instanceof JReferencedMethodInvocationExpression)) {
+      return state;
+    }
+
+    JReferencedMethodInvocationExpression invocation =
+          (JReferencedMethodInvocationExpression) functionCallExpression;
+
+    JIdExpression caller = invocation.getReferencedVariable();
+    MemoryLocation callerVariable = getMemoryLocation(caller);
+
+    return handleAssignmentToVariable(callerVariable, caller.getExpressionType(), invocation, getVisitor());
   }
 
   private boolean isTrackedType(Type pType) {

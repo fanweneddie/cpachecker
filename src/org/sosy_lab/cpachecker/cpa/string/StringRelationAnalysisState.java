@@ -245,7 +245,7 @@ public final class StringRelationAnalysisState
 
     // consider the relation ending at pMemoryLocation
     for (RelationEdge<MemoryLocation, StringRelationLabel> re :
-        relationGraph.outEdges(pMemoryLocation)) {
+        relationGraph.inEdges(pMemoryLocation)) {
       if (re.isSelfLoop()) {
         continue;
       }
