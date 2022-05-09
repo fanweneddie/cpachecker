@@ -80,7 +80,18 @@ public final class StringRelationAnalysisState
   }
 
   /**
-   * remove the variables in the given function from the relation graph.
+   * add a variable into {@link #relationGraph}, if it is not present.
+   * @param pMemoryLocation the given variable, which must not be null
+   * @return true if {@link #relationGraph} is modified
+   */
+  public boolean addVariable(MemoryLocation pMemoryLocation) {
+    assertNotNull(pMemoryLocation);
+
+    return relationGraph.addNode(pMemoryLocation);
+  }
+
+  /**
+   * Remove the variables in the given function from the relation graph.
    * @param functionName the name of the given function
    */
   public void dropFrame(String functionName) {

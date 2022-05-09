@@ -112,7 +112,7 @@ public class StringRelationAnalysisTransferRelation
 
     // kill the original relation with LHSVariable
     MemoryLocation LHSVariable = MemoryLocation.forLocalVariable(functionName, varName);
-    newState.killVariableRelation(LHSVariable);
+    newState.addVariable(LHSVariable);
 
     // add the equation relation between LHSVariable and RHSVariable
     AInitializer init = decl.getInitializer();
@@ -237,6 +237,11 @@ public class StringRelationAnalysisTransferRelation
 
     StringRelationAnalysisState newState = StringRelationAnalysisState.deepCopyOf(state);
     newState.setInvocation(LHSVariable, invocation);
+
+    if (TypeChecker.isNonDetString(invocation)) {
+      newState.addVariable(LHSVariable);
+      return newState;
+    }
 
     if (TypeChecker.isStringConcat(invocation)) {
       return handleStringConcat(LHSVariable, invocation, newState);
@@ -364,7 +369,7 @@ public class StringRelationAnalysisTransferRelation
     curState.killVariableRelation(returnValue);
 
     // add the new relation as callerVariable.concat(paramVariable) = LHSVariable
-    curState.makeConcat(callerVariable, paramVariable, returnValue);
+    curState.makeConcat(returnValue, callerVariable, paramVariable);
 
     return curState;
   }
