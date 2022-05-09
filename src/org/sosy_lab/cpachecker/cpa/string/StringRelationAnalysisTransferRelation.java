@@ -281,8 +281,15 @@ public class StringRelationAnalysisTransferRelation
 
     // if RHS is a string variable or a constant, add the equation relation between LHSVariable and RHSVariable
     if (RHS instanceof JIdExpression || RHS instanceof JStringLiteralExpression) {
-      JIdExpression RHSExpression = (JIdExpression) RHS;
-      MemoryLocation RHSVariable = StringVariableGenerator.getExpressionMemLocation(RHSExpression, functionName);
+      MemoryLocation RHSVariable;
+      if (RHS instanceof JIdExpression) {
+        JIdExpression RHSExpression = (JIdExpression) RHS;
+        RHSVariable = StringVariableGenerator.getExpressionMemLocation(RHSExpression, functionName);
+      } else {
+        JStringLiteralExpression RHSExpression = (JStringLiteralExpression) RHS;
+        RHSVariable = StringVariableGenerator.getExpressionMemLocation(RHSExpression, functionName);
+      }
+
       if (RHSVariable != null) {
         newState.makeEqual(LHSVariable, RHSVariable);
         newState.copyInvocation(RHSVariable, LHSVariable);

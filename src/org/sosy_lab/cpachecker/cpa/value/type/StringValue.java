@@ -13,6 +13,7 @@ package org.sosy_lab.cpachecker.cpa.value.type;
 
 import static org.junit.Assert.assertNotNull;
 
+import java.util.Arrays;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.sosy_lab.cpachecker.cfa.types.c.CType;
@@ -28,9 +29,6 @@ public class StringValue implements Value {
   /** The domain of string value */
   private final Automaton valueDomain;
 
-  /** Whether the string value is unknown */
-  public final boolean isUnknown;
-
   /**
    * The factory that creates the value of a given string.
    * @param pValue the given string
@@ -38,7 +36,7 @@ public class StringValue implements Value {
    */
   public static StringValue newStringValue(String pValue) {
     if (pValue != null) {
-      return new StringValue(BasicAutomata.makeString(pValue), false);
+      return new StringValue(BasicAutomata.makeString(pValue));
     } else {
       return new StringValue();
     }
@@ -49,15 +47,13 @@ public class StringValue implements Value {
    */
   private StringValue() {
     this.valueDomain = BasicAutomata.makeAnyString();
-    this.isUnknown = true;
   }
 
   /**
    * Construct the value for a known concrete string.
    */
-  private StringValue(Automaton pValueDomain, boolean pIsUnknown) {
+  private StringValue(Automaton pValueDomain) {
     this.valueDomain = pValueDomain;
-    this.isUnknown = pIsUnknown;
   }
 
   public Automaton getValueDomain() {
@@ -84,8 +80,12 @@ public class StringValue implements Value {
   public static StringValue concat(StringValue pStringValue1, StringValue pStringValue2) {
     assertNotNull(pStringValue1);
     assertNotNull(pStringValue2);
+    assertNotNull(pStringValue1.valueDomain);
+    assertNotNull(pStringValue2.valueDomain);
 
-    return null;
+    Automaton newValueDomain =  Automaton.concatenate(Arrays.asList(pStringValue1.valueDomain,
+                                                                    pStringValue2.valueDomain));
+    return new StringValue(newValueDomain);
   }
 
   /**
@@ -99,11 +99,11 @@ public class StringValue implements Value {
   }
 
   /**
-   * Check whether this string is unknown.
+   * We don't set all string values as known
    */
   @Override
   public boolean isUnknown() {
-    return isUnknown;
+    return false;
   }
 
   /**
@@ -111,7 +111,7 @@ public class StringValue implements Value {
    */
   @Override
   public boolean isExplicitlyKnown() {
-    return !isUnknown;
+    return true;
   }
 
   /**
@@ -144,11 +144,7 @@ public class StringValue implements Value {
 
   @Override
   public String toString() {
-    if (isUnknown) {
-      return "Value [unknown string]";
-    } else {
       return "Value [string=" + valueDomain.toString() + "]";
-    }
   }
 
   /**
@@ -164,12 +160,11 @@ public class StringValue implements Value {
       return false;
     }
     StringValue otherStringValue = (StringValue) other;
-    return isUnknown == otherStringValue.isUnknown &&
-        Objects.equals(valueDomain, otherStringValue.valueDomain);
+    return Objects.equals(valueDomain, otherStringValue.valueDomain);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(valueDomain, isUnknown);
+    return Objects.hash(valueDomain);
   }
 }

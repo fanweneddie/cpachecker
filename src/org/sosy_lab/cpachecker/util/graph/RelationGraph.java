@@ -169,10 +169,10 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
         assertNotNull(pN);
 
         if (containsNode(pN)) {
-            for (RE relationEdge : adjStartList.get(pN)) {
+            for (RE relationEdge : outEdges(pN)) {
                 removeEdge(relationEdge);
             }
-            for (RE relationEdge : adjEndList.get(pN)) {
+            for (RE relationEdge : inEdges(pN)) {
                 removeEdge(relationEdge);
             }
             adjStartList.remove(pN);
@@ -229,7 +229,8 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
      */
     @Override
     public Set<N> nodes() {
-        return adjStartList.keySet();
+        Set<N> nodeSet = new HashSet<>(adjStartList.keySet());
+        return nodeSet;
     }
 
     /**
