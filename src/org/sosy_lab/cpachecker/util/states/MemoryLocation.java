@@ -180,6 +180,10 @@ public final class MemoryLocation implements Comparable<MemoryLocation>, Seriali
     return identifier;
   }
 
+  public boolean isConstantString() {
+    return identifier.startsWith("-");
+  }
+
   public boolean isReference() {
     return offset != null;
   }

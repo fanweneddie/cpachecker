@@ -55,11 +55,12 @@ public class MemoryLocationVisitor
 
   /**
    * Return a temporary variable for a string constant.
+   * The name of a string constant is "-" + its value.
    */
   @Override
   public MemoryLocation visit(JStringLiteralExpression paStringLiteralExpression)
       throws NoException {
-    String value = paStringLiteralExpression.getValue();
+    String value = "-" + paStringLiteralExpression.getValue();
     MemoryLocation memLoc = MemoryLocation.forLocalVariable(functionName, value);
     return memLoc;
   }
