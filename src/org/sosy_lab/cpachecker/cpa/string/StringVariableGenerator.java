@@ -29,6 +29,8 @@ public class StringVariableGenerator {
    */
   private static final Map<String, MemoryLocationVisitor> visitorCache = new HashMap<>();
 
+  private static final Map<MemoryLocation, MemoryLocation> variableCache = new HashMap<>();
+
   /**
    * Get the MemoryLocationVisitor for a given function.
    * We leverage {@link #visitorCache} to save time.
@@ -57,12 +59,26 @@ public class StringVariableGenerator {
 
     if (expression instanceof JIdExpression) {
       JIdExpression IdExpression = (JIdExpression) expression;
-      return IdExpression.accept(mlv);
+      return checkInCache(IdExpression.accept(mlv));
     } else if (expression instanceof JStringLiteralExpression) {
       JStringLiteralExpression stringLiteralExpression = (JStringLiteralExpression) expression;
-      return stringLiteralExpression.accept(mlv);
+      return checkInCache(stringLiteralExpression.accept(mlv));
     } else {
       return null;
+    }
+  }
+
+  /**
+   * Use {@link #visitorCache} to return cached memory location, in order to save memory.
+   * @param pMemoryLocation the given memory location
+   * @return the cached one if an identical one (to <code>pMemoryLocation</code> is stored in {@link #visitorCache}
+   */
+  private static MemoryLocation checkInCache(MemoryLocation pMemoryLocation) {
+    if (variableCache.containsKey(pMemoryLocation)) {
+      return variableCache.get(pMemoryLocation);
+    } else {
+      variableCache.put(pMemoryLocation, pMemoryLocation);
+      return pMemoryLocation;
     }
   }
 }

@@ -199,11 +199,10 @@ public final class StringRelationAnalysisState
                          MemoryLocation pMemoryLocationFrom1,
                          MemoryLocation pMemoryLocationFrom2) {
     // add relation between pMemoryLocationTo with pMemoryLocationFrom1 and pMemoryLocationFrom2
-    addRelation(pMemoryLocationFrom1, pMemoryLocationTo, StringRelationLabel.CONCAT_AS_PREFIX);
-    addRelation(pMemoryLocationFrom2, pMemoryLocationTo, StringRelationLabel.CONCAT_AS_SUFFIX);
+    addRelation(pMemoryLocationFrom1, pMemoryLocationTo, StringRelationLabel.CONCAT_TO);
+    addRelation(pMemoryLocationFrom2, pMemoryLocationTo, StringRelationLabel.CONCAT_TO);
     // add relation between pMemoryLocationFrom1 with pMemoryLocationFrom2
     addRelation(pMemoryLocationFrom1, pMemoryLocationFrom2, StringRelationLabel.CONCAT_WITH);
-    addRelation(pMemoryLocationFrom2, pMemoryLocationFrom1, StringRelationLabel.CONCAT_WITH);
   }
 
   /**
@@ -226,17 +225,11 @@ public final class StringRelationAnalysisState
         case REVERSE_EQUAL:
           re.setLabel(StringRelationLabel.EQUAL);
           break;
-        case CONCAT_AS_PREFIX:
-          re.setLabel(StringRelationLabel.REVERSE_CONCAT_AS_PREFIX);
+        case CONCAT_TO:
+          re.setLabel(StringRelationLabel.REVERSE_CONCAT_TO);
           break;
-        case CONCAT_AS_SUFFIX:
-          re.setLabel(StringRelationLabel.REVERSE_CONCAT_AS_SUFFIX);
-          break;
-        case REVERSE_CONCAT_AS_PREFIX:
-          re.setLabel(StringRelationLabel.CONCAT_AS_PREFIX);
-          break;
-        case REVERSE_CONCAT_AS_SUFFIX:
-          re.setLabel(StringRelationLabel.CONCAT_AS_SUFFIX);
+        case REVERSE_CONCAT_TO:
+          re.setLabel(StringRelationLabel.CONCAT_TO);
           break;
         default:
           break;
@@ -244,6 +237,8 @@ public final class StringRelationAnalysisState
     }
 
     // consider the relation ending at pMemoryLocation
+    // the original start node of a concatenation chain
+    MemoryLocation startNode = null;
     for (RelationEdge<MemoryLocation, StringRelationLabel> re :
         relationGraph.inEdges(pMemoryLocation)) {
       if (re.isSelfLoop()) {
@@ -258,22 +253,77 @@ public final class StringRelationAnalysisState
         case REVERSE_EQUAL:
           re.setLabel(StringRelationLabel.EQUAL);
           break;
-        case CONCAT_AS_PREFIX:
-          re.setLabel(StringRelationLabel.REVERSE_CONCAT_AS_SUFFIX);
+        case CONCAT_TO:
+          re.setLabel(StringRelationLabel.REVERSE_CONCAT_TO);
+          startNode = getStartOfConcatChain(re);
           break;
-        case CONCAT_AS_SUFFIX:
-          re.setLabel(StringRelationLabel.REVERSE_CONCAT_AS_PREFIX);
-          break;
-        case REVERSE_CONCAT_AS_PREFIX:
-          re.setLabel(StringRelationLabel.CONCAT_AS_SUFFIX);
-          break;
-        case REVERSE_CONCAT_AS_SUFFIX:
-          re.setLabel(StringRelationLabel.CONCAT_AS_PREFIX);
+        case REVERSE_CONCAT_TO:
+          re.setLabel(StringRelationLabel.CONCAT_TO);
+          startNode = getStartOfConcatChain(re);
           break;
         default:
           break;
       }
     }
+
+    assertNotNull(startNode);
+    reverseConcatFrom(startNode);
+  }
+
+  /**
+   * Check whether the start node of a given edge is the start of a concatenation chain.
+   * @param pRe the given relation edge, which must be valid and in {@link #relationGraph}
+   * @return the start node of <code>pRe</code> if it does not have any incoming edge marked CONCAT_WITH;
+   *        Else, return null
+   */
+  private MemoryLocation getStartOfConcatChain(RelationEdge<MemoryLocation, StringRelationLabel> pRe) {
+    assertNotNull(pRe);
+    assert pRe.valid() && relationGraph.containsEdge(pRe);
+
+    MemoryLocation startNode = pRe.getStartNode();
+    boolean flagOfStartOfConcatChain = true;
+    for (RelationEdge<MemoryLocation, StringRelationLabel> inEdge : relationGraph.inEdges(startNode)) {
+      if (inEdge.getLabel() == StringRelationLabel.CONCAT_WITH) {
+        flagOfStartOfConcatChain = false;
+        break;
+      }
+    }
+
+    if (flagOfStartOfConcatChain) {
+      return startNode;
+    } else {
+      return null;
+    }
+  }
+
+  /**
+   * Reverse each edge with CONCAT_WITH on the chain from a start node.
+   * @param startNode the given start node, which must be in {@link #relationGraph}
+   */
+  private void reverseConcatFrom(MemoryLocation startNode) {
+    assertNotNull(startNode);
+    assert relationGraph.containsNode(startNode);
+
+    MemoryLocation curNode = startNode;
+    RelationEdge<MemoryLocation, StringRelationLabel> curEdge = getNextEdgeOfConcat(curNode);
+    while (curEdge != null) {
+      curNode = curEdge.getEndNode();
+      relationGraph.reverseEdge(curEdge);
+      curEdge = getNextEdgeOfConcat(curNode);
+    }
+  }
+
+  /**
+   * Get a node's out edge that is marked with CONCAT_WITH.
+   */
+  private RelationEdge<MemoryLocation, StringRelationLabel> getNextEdgeOfConcat(MemoryLocation node) {
+    for (RelationEdge<MemoryLocation, StringRelationLabel> outEdge : relationGraph.outEdges(node)) {
+      if (outEdge.getLabel() == StringRelationLabel.CONCAT_WITH) {
+        return outEdge;
+      }
+    }
+
+    return null;
   }
 
   /**
@@ -398,15 +448,11 @@ public final class StringRelationAnalysisState
     EQUAL,
     /** x and y are reverse to each other */
     REVERSE_EQUAL,
-    /** y = x concat z, so x is y's prefix */
-    CONCAT_AS_PREFIX,
-    /** y = z concat x, so x is y's suffix */
-    CONCAT_AS_SUFFIX,
-    /** y = (reverse x) concat z, so reverse x is y's prefix */
-    REVERSE_CONCAT_AS_PREFIX,
-    /** y = z concat (reverse x), so reverse x is y's suffix */
-    REVERSE_CONCAT_AS_SUFFIX,
-    /** z = (x or reverse x) concat (y or reverse y), so x and y concatenate with each other */
+    /** y = (reverse x) concat z, so z concatenates to y */
+    CONCAT_TO,
+    /** y = (reverse x) concat z, so x reversely concatenates to y */
+    REVERSE_CONCAT_TO,
+    /** z = (x or reverse x) concat (y or reverse y), so x concatenates  */
     CONCAT_WITH
   }
 }

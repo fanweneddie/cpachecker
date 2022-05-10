@@ -53,7 +53,7 @@ public class StringValue implements Value {
   /**
    * Construct the value for a known concrete string.
    */
-  private StringValue(Automaton pValueDomain) {
+  public StringValue(Automaton pValueDomain) {
     this.valueDomain = pValueDomain;
   }
 

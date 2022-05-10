@@ -87,6 +87,7 @@ import org.sosy_lab.cpachecker.cfa.types.c.CType;
 import org.sosy_lab.cpachecker.cfa.types.java.JArrayType;
 import org.sosy_lab.cpachecker.cfa.types.java.JBasicType;
 import org.sosy_lab.cpachecker.cfa.types.java.JSimpleType;
+import org.sosy_lab.cpachecker.cfa.types.java.JStringType;
 import org.sosy_lab.cpachecker.cfa.types.java.JType;
 import org.sosy_lab.cpachecker.cpa.string.TypeChecker;
 import org.sosy_lab.cpachecker.cpa.value.symbolic.type.SymbolicExpression;
@@ -94,6 +95,7 @@ import org.sosy_lab.cpachecker.cpa.value.symbolic.type.SymbolicValue;
 import org.sosy_lab.cpachecker.cpa.value.symbolic.type.SymbolicValueFactory;
 import org.sosy_lab.cpachecker.cpa.value.type.ArrayValue;
 import org.sosy_lab.cpachecker.cpa.value.type.BooleanValue;
+import org.sosy_lab.cpachecker.cpa.value.type.CharValue;
 import org.sosy_lab.cpachecker.cpa.value.type.EnumConstantValue;
 import org.sosy_lab.cpachecker.cpa.value.type.FunctionValue;
 import org.sosy_lab.cpachecker.cpa.value.type.NullValue;
@@ -108,6 +110,7 @@ import org.sosy_lab.cpachecker.exceptions.UnrecognizedCodeException;
 import org.sosy_lab.cpachecker.util.BuiltinFloatFunctions;
 import org.sosy_lab.cpachecker.util.BuiltinFunctions;
 import org.sosy_lab.cpachecker.util.BuiltinOverflowFunctions;
+import org.sosy_lab.cpachecker.util.automaton4string.Automaton;
 
 /**
  * This Visitor implements an evaluation strategy
@@ -1569,7 +1572,7 @@ public abstract class AbstractExpressionValueVisitor
 
   @Override
   public Value visit(JCharLiteralExpression pE) {
-    return new NumericValue((long) pE.getCharacter());
+    return new CharValue(pE.getCharacter());
   }
 
   @Override
@@ -2572,6 +2575,11 @@ public abstract class AbstractExpressionValueVisitor
       return castIfSymbolic(value, targetType, Optional.empty());
     }
 
+    // support the conversion to string type
+    if (targetType instanceof JStringType) {
+      return castToStringValue(value);
+    }
+
     // Other than symbolic values, we can only cast numeric values, for now.
     if (!value.isNumericValue()) {
       logger.logf(Level.FINE, "Can not cast Java value %s to %s", value.toString(), targetType.toString());
@@ -2602,6 +2610,88 @@ public abstract class AbstractExpressionValueVisitor
     }
   }
 
+  /**
+   * Convert the given value to String value.
+   * We can consider bool, character, numeric and array type.
+   * @param value the original value of a type (maybe String)
+   * @return the string value after the conversion
+   */
+  private static StringValue castToStringValue(Value value) {
+    if (value instanceof StringValue) {
+      return (StringValue) value;
+    }
+
+    String str = castToString(value);
+    return StringValue.newStringValue(str);
+  }
+
+  /**
+   * Convert the given value to a string.
+   * We can consider bool, character, numeric and array type.
+   * @param value the original value of other types
+   * @return the string after the conversion
+   */
+  private static String castToString(Value value) {
+    String str = "";
+
+    if (value instanceof BooleanValue) {
+      BooleanValue booleanValue = (BooleanValue) value;
+      str = castBoolToStringValue(booleanValue);
+    }
+
+    if (value instanceof CharValue) {
+      CharValue charValue = (CharValue) value;
+      str = castCharToStringValue(charValue);
+    }
+
+    if (value instanceof NumericValue) {
+      NumericValue numericValue = (NumericValue) value;
+      str = castNumericToStringValue(numericValue);
+    }
+
+    if (value instanceof ArrayValue) {
+      ArrayValue arrayValue = (ArrayValue) value;
+      str = castArrayToStringValue(arrayValue);
+    }
+
+    return str;
+  }
+
+  /**
+   * Convert the given bool value to string.
+   */
+  private static String castBoolToStringValue(BooleanValue value) {
+    if (value.isTrue()) {
+      return "true";
+    } else {
+      return "false";
+    }
+  }
+
+  /**
+   * Convert the given character value to string value.
+   */
+  private static String castCharToStringValue(CharValue value) {
+    return Character.toString(value.getChar());
+  }
+
+  /**
+   * Convert the given numeric value to string value.
+   */
+  private static String castNumericToStringValue(NumericValue value) {
+     return value.getNumber().toString();
+  }
+
+  private static String castArrayToStringValue(ArrayValue value) {
+    String str = "";
+    int size = value.getArraySize();
+    for (int i = 0; i < size; ++i) {
+      Value element = value.getValueAt(i);
+      str = str + castToString(element);
+    }
+    return str;
+  }
+
   private static Value createValue(long value, JBasicType targetType) {
     switch (targetType) {
     case BYTE:
@@ -2609,7 +2699,7 @@ public abstract class AbstractExpressionValueVisitor
 
     case CHAR:
       char castedValue = (char) value;
-      return new NumericValue((int) castedValue);
+      return new CharValue(castedValue);
     case SHORT:
       return new NumericValue((short) value);
 
@@ -2716,8 +2806,20 @@ public abstract class AbstractExpressionValueVisitor
 
     Value callerValue = evaluate((JRightHandSide) caller, (JType) caller.getExpressionType());
     assert (callerValue instanceof StringValue);
-    Value paramValue = evaluate((JRightHandSide) param, (JType) param.getExpressionType());
+    Value paramValue = evaluate((JRightHandSide) param, (JType) new JStringType());
     assert (paramValue instanceof StringValue);
+
+    // consider appending the substring of paramValue
+    if (invocation.getParameterExpressions().size() == 3) {
+      JExpression start = invocation.getParameterExpressions().get(1);
+      JExpression end = invocation.getParameterExpressions().get(2);
+      Value startValue = evaluate((JRightHandSide) start, (JType) start.getExpressionType());
+      Value endValue = evaluate((JRightHandSide) end, (JType) end.getExpressionType());
+      assert (startValue instanceof NumericValue);
+      assert (endValue instanceof NumericValue);
+      paramValue = getSubstringValue((StringValue) paramValue, (NumericValue) startValue, (NumericValue) endValue);
+      assert (paramValue instanceof StringValue);
+    }
 
     return StringValue.concat((StringValue) callerValue, (StringValue) paramValue);
   }
@@ -2749,5 +2851,22 @@ public abstract class AbstractExpressionValueVisitor
     else {
       return getEmptyStringValue();
     }
+  }
+
+  /**
+   * Return the value of a substring of a given string value.
+   * @param stringValue the given string value
+   * @param startValue the value of starting index (inclusive)
+   * @param endValue the value of ending index (not inclusive)
+   */
+  private Value getSubstringValue(StringValue stringValue, NumericValue startValue, NumericValue endValue) {
+
+      int start = (int) startValue.longValue();
+      int end = (int) endValue.longValue();
+
+      assert stringValue.getValueDomain() != null;
+      Automaton newDomain = stringValue.getValueDomain().getSubAutomaton(start, end);
+
+      return new StringValue(newDomain);
   }
 }

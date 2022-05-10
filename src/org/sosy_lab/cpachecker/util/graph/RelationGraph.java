@@ -613,6 +613,19 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
     }
 
     /**
+     * make the given edge reverse.
+     * @param pRE the given edge, which must be valid and in this graph
+     */
+    public void reverseEdge(RE pRE) {
+        assertNotNull(pRE);
+        assert pRE.valid() && containsEdge(pRE);
+
+        RE reversedEdge = (RE) pRE.getReservedEdge();
+        removeEdge(pRE);
+        addEdge(reversedEdge);
+    }
+
+    /**
      * Note that {@link #equals} and {@link #hashCode} only depend on adjStartList.
      */
     @Override
@@ -636,7 +649,7 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
     public String toString() {
         String str = "";
         for (RE relationEdge : edges()) {
-            str += relationEdge.toString() + ", ";
+            str += relationEdge.toString() + ",\n";
         }
         return str;
     }

@@ -184,6 +184,10 @@ public class ArrayValue implements Value {
       switch (concreteType) {
         case BYTE:
         case CHAR:
+          if (!(pValue instanceof CharValue)) {
+            throw new IllegalArgumentException(errorMessage);
+          }
+          break;
         case SHORT:
         case INT:
         case LONG:

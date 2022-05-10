@@ -103,7 +103,7 @@ public class TypeChecker {
   }
 
   /**
-   * Check whether the given method is concat() of String.
+   * Check whether the given method is concat() of String or append() of StringBuilder.
    */
   public static boolean isStringConcat(JReferencedMethodInvocationExpression invocation) {
     if (!(invocation.getFunctionNameExpression() instanceof JIdExpression)) {
@@ -111,12 +111,10 @@ public class TypeChecker {
     }
 
     JIdExpression functionNameExpression = (JIdExpression) invocation.getFunctionNameExpression();
-    JIdExpression callerObject = invocation.getReferencedVariable();
     List<JExpression> params = invocation.getParameterExpressions();
 
-    return isJavaGenericStringType(callerObject.getExpressionType()) &&
-        params.size() == 1 &&
-        functionNameExpression.toString().equals("concat");
+    return (params.size() == 1 || params.size() == 3) &&
+        (functionNameExpression.toString().equals("concat") || functionNameExpression.toString().equals("append"));
   }
 
   /**

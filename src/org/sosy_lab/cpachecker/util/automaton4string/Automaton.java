@@ -1102,4 +1102,12 @@ public class Automaton implements Serializable, Cloneable {
 	public Automaton shuffle(Automaton a) {
 		return ShuffleOperations.shuffle(this, a);
 	}
+
+	/**
+	 * Get the automaton that accepts the "sublanguage" of [start, end).
+	 */
+	public Automaton getSubAutomaton(int start, int end) {
+		// todo
+		return this;
+	}
 }

@@ -1436,7 +1436,7 @@ public class ValueAnalysisTransferRelation
         pElement = successors.iterator().next();
       }
     } catch (Exception e) {
-      logger.log(Level.SEVERE, "Exception in getting successors during strengthening stage");
+      logger.log(Level.SEVERE, "Exception in getting successors during strengthening stage", e);
     }
 
     List<ValueAnalysisState> toStrengthen = new ArrayList<>();
