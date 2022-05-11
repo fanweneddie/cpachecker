@@ -2167,6 +2167,10 @@ public abstract class AbstractExpressionValueVisitor
       if (TypeChecker.isStringReverse(invocation)) {
         return getReverseValue(invocation);
       }
+      // consider toString()
+      if (TypeChecker.isToString(invocation)) {
+        return getCallerValue(invocation);
+      }
     }
 
     return UnknownValue.getInstance();
@@ -2801,11 +2805,9 @@ public abstract class AbstractExpressionValueVisitor
    * Return the value of a string concatenation.
    */
   private Value getConcatValue(JReferencedMethodInvocationExpression invocation) {
-    JIdExpression caller = invocation.getReferencedVariable();
     JExpression param = invocation.getParameterExpressions().get(0);
 
-    Value callerValue = evaluate((JRightHandSide) caller, (JType) caller.getExpressionType());
-    assert (callerValue instanceof StringValue);
+    Value callerValue = getCallerValue(invocation);
     Value paramValue = evaluate((JRightHandSide) param, (JType) new JStringType());
     assert (paramValue instanceof StringValue);
 
@@ -2828,11 +2830,20 @@ public abstract class AbstractExpressionValueVisitor
    * Return the value of a string reverse.
    */
   private Value getReverseValue(JReferencedMethodInvocationExpression invocation) {
+   Value callerValue = getCallerValue(invocation);
+
+    return StringValue.reverse((StringValue) callerValue);
+  }
+
+  /**
+   * Return the value of the caller object.
+   */
+  private Value getCallerValue(JReferencedMethodInvocationExpression invocation) {
     JIdExpression caller = invocation.getReferencedVariable();
     Value callerValue = evaluate((JRightHandSide) caller, (JType) caller.getExpressionType());
     assert (callerValue instanceof StringValue);
 
-    return StringValue.reverse((StringValue) callerValue);
+    return callerValue;
   }
 
   /**

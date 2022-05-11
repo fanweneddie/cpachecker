@@ -14,6 +14,7 @@ package org.sosy_lab.cpachecker.cpa.string;
 import java.util.HashMap;
 import java.util.Map;
 import org.sosy_lab.cpachecker.cfa.ast.AExpression;
+import org.sosy_lab.cpachecker.cfa.ast.java.JArraySubscriptExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JIdExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JStringLiteralExpression;
 import org.sosy_lab.cpachecker.util.states.MemoryLocation;
@@ -60,6 +61,9 @@ public class StringVariableGenerator {
     if (expression instanceof JIdExpression) {
       JIdExpression IdExpression = (JIdExpression) expression;
       return checkInCache(IdExpression.accept(mlv));
+    } else if (expression instanceof JArraySubscriptExpression) {
+      JArraySubscriptExpression arraySubscriptExpression = (JArraySubscriptExpression) expression;
+      return checkInCache(arraySubscriptExpression.accept(mlv));
     } else if (expression instanceof JStringLiteralExpression) {
       JStringLiteralExpression stringLiteralExpression = (JStringLiteralExpression) expression;
       return checkInCache(stringLiteralExpression.accept(mlv));

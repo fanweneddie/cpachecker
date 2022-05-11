@@ -1322,9 +1322,11 @@ public class ValueAnalysisTransferRelation
   }
 
   private void handleAssignmentToArray(ArrayValue pArray, int index, ARightHandSide exp) {
-    assert exp instanceof JExpression;
-
-    pArray.setValue(((JExpression) exp).accept(getVisitor()), index);
+    if (exp instanceof JExpression) {
+      pArray.setValue(((JExpression) exp).accept(getVisitor()), index);
+    } else if (exp instanceof JReferencedMethodInvocationExpression) {
+      pArray.setValue(((JReferencedMethodInvocationExpression) exp).accept(getVisitor()), index);
+    }
   }
 
   private void assignUnknownValueToEnclosingInstanceOfArray(JArraySubscriptExpression pArraySubscriptExpression) {

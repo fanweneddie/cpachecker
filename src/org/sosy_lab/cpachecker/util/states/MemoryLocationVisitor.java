@@ -21,18 +21,22 @@ import org.sosy_lab.cpachecker.cfa.ast.java.JCharLiteralExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JClassInstanceCreation;
 import org.sosy_lab.cpachecker.cfa.ast.java.JClassLiteralExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JEnumConstantExpression;
+import org.sosy_lab.cpachecker.cfa.ast.java.JExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JFloatLiteralExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JIdExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JIntegerLiteralExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JMethodInvocationExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JNullLiteralExpression;
+import org.sosy_lab.cpachecker.cfa.ast.java.JRightHandSide;
 import org.sosy_lab.cpachecker.cfa.ast.java.JRightHandSideVisitor;
 import org.sosy_lab.cpachecker.cfa.ast.java.JRunTimeTypeEqualsType;
 import org.sosy_lab.cpachecker.cfa.ast.java.JStringLiteralExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JThisExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JUnaryExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JVariableRunTimeType;
+import org.sosy_lab.cpachecker.cfa.types.java.JType;
 import org.sosy_lab.cpachecker.core.defaults.ForwardingTransferRelation;
+import org.sosy_lab.cpachecker.cpa.value.type.Value;
 import org.sosy_lab.cpachecker.exceptions.NoException;
 
 /**
@@ -146,7 +150,15 @@ public class MemoryLocationVisitor
   @Override
   public MemoryLocation visit(JArraySubscriptExpression pAArraySubscriptExpression)
       throws NoException {
-    return null;
+    MemoryLocation memLoc;
+
+    if (!ForwardingTransferRelation.isGlobal(pAArraySubscriptExpression)) {
+      memLoc = MemoryLocation.forLocalVariable(functionName, pAArraySubscriptExpression.toString());
+    } else {
+      memLoc = MemoryLocation.forIdentifier(pAArraySubscriptExpression.toString());
+    }
+
+    return memLoc;
   }
 
   /**

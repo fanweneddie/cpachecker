@@ -22,6 +22,7 @@ import org.sosy_lab.cpachecker.cfa.ast.AInitializerExpression;
 import org.sosy_lab.cpachecker.cfa.ast.ARightHandSide;
 import org.sosy_lab.cpachecker.cfa.ast.AStatement;
 import org.sosy_lab.cpachecker.cfa.ast.AVariableDeclaration;
+import org.sosy_lab.cpachecker.cfa.ast.java.JArraySubscriptExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JBinaryExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JBooleanLiteralExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JClassInstanceCreation;
@@ -228,7 +229,7 @@ public class StringRelationAnalysisTransferRelation
     AExpression op1 = invocationAssignment.getLeftHandSide();
     ARightHandSide op2 = invocationAssignment.getRightHandSide();
 
-    if (!(op1 instanceof JIdExpression) ||
+    if (!(op1 instanceof JIdExpression || op1 instanceof JArraySubscriptExpression) ||
         !(op2 instanceof JClassInstanceCreation ||
         op2 instanceof JReferencedMethodInvocationExpression)) {
       return state;
@@ -259,6 +260,10 @@ public class StringRelationAnalysisTransferRelation
 
       if (TypeChecker.isStringConcat(invocation)) {
         return handleStringConcat(LHSVariable, invocation, newState);
+      }
+
+      if (TypeChecker.isToString(invocation)) {
+        return handleToString(LHSVariable, invocation, newState);
       }
     }
 
@@ -392,6 +397,23 @@ public class StringRelationAnalysisTransferRelation
 
     // add the new relation as callerVariable.concat(paramVariable) = LHSVariable
     curState.makeConcat(returnValue, callerVariable, paramVariable);
+
+    return curState;
+  }
+
+  private StringRelationAnalysisState handleToString(MemoryLocation returnValue,
+                                                     JReferencedMethodInvocationExpression invocation,
+                                                     StringRelationAnalysisState curState) {
+    JIdExpression caller = invocation.getReferencedVariable();
+    MemoryLocation callerVariable = StringVariableGenerator.getExpressionMemLocation(caller, functionName);
+
+    if (callerVariable == null) {
+      return curState;
+    }
+
+    // kill the original relation with LHSVariable
+    curState.killVariableRelation(returnValue);
+    curState.makeEqual(returnValue, callerVariable);
 
     return curState;
   }

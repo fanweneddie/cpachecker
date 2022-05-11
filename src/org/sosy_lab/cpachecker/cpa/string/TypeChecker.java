@@ -117,6 +117,18 @@ public class TypeChecker {
         (functionNameExpression.toString().equals("concat") || functionNameExpression.toString().equals("append"));
   }
 
+  public static boolean isToString(JReferencedMethodInvocationExpression invocation) {
+    if (!(invocation.getFunctionNameExpression() instanceof JIdExpression)) {
+      return false;
+    }
+
+    JIdExpression functionNameExpression = (JIdExpression) invocation.getFunctionNameExpression();
+    List<JExpression> params = invocation.getParameterExpressions();
+
+    return params.size() == 0 &&
+        (functionNameExpression.toString().equals("toString"));
+  }
+
   /**
    * Check whether the given method is reverse() of String.
    */

@@ -19,6 +19,7 @@ import org.sosy_lab.cpachecker.cfa.types.java.JBasicType;
 import org.sosy_lab.cpachecker.cfa.types.java.JClassOrInterfaceType;
 import org.sosy_lab.cpachecker.cfa.types.java.JSimpleType;
 import org.sosy_lab.cpachecker.cfa.types.java.JType;
+import org.sosy_lab.cpachecker.cpa.string.TypeChecker;
 
 /**
  * Instances of this class represent arrays with characteristics of Java arrays.
@@ -175,10 +176,10 @@ public class ArrayValue implements Value {
       if (!(pValue instanceof ArrayValue || pValue instanceof NullValue)) {
         throw new IllegalArgumentException(errorMessage);
       }
-    } else if (elementType instanceof JClassOrInterfaceType && !isValidComplexValue(pValue)) {
+    } /*else if (elementType instanceof JClassOrInterfaceType && !isValidComplexValue(pValue)) {
       throw new IllegalArgumentException(errorMessage);
 
-    } else if (elementType instanceof JSimpleType) {
+    }*/ else if (elementType instanceof JSimpleType) {
       JBasicType concreteType = ((JSimpleType) elementType).getType();
 
       switch (concreteType) {
@@ -209,6 +210,10 @@ public class ArrayValue implements Value {
           break;
         default:
           throw new IllegalArgumentException(errorMessage);
+      }
+    } else if (TypeChecker.isJavaGenericStringType(elementType)) {
+      if (!(pValue instanceof StringValue)) {
+        throw new IllegalArgumentException(errorMessage);
       }
     }
   }
