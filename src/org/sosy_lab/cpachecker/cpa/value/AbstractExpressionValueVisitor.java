@@ -19,6 +19,7 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.logging.Level;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.sosy_lab.common.log.LogManager;
@@ -2179,6 +2180,10 @@ public abstract class AbstractExpressionValueVisitor
       if (TypeChecker.isSubstring(invocation)) {
         return getSubstringValue(invocation);
       }
+      // consider charAt()
+      if (TypeChecker.isCharAt(invocation)) {
+        return getCharValue(invocation);
+      }
     }
 
     return UnknownValue.getInstance();
@@ -2682,9 +2687,13 @@ public abstract class AbstractExpressionValueVisitor
 
   /**
    * Convert the given character value to string value.
+   * We take an approximation by collecting all chars and making them as string.
    */
   private static String castCharToStringValue(CharValue value) {
-    return Character.toString(value.getChar());
+    Set<Character> chars = value.getChars();
+    Character[] charArray = new Character[chars.size()];
+    chars.toArray(charArray);
+    return String.valueOf(charArray);
   }
 
   /**
@@ -2894,6 +2903,23 @@ public abstract class AbstractExpressionValueVisitor
 
     return getSubstringValueOfString((StringValue) callerValue, (NumericValue) paramStartValue,
                                     (NumericValue) paramEndValue);
+  }
+
+  /**
+   * Return the value of the characters of a string at a position.
+   */
+  private Value getCharValue(JReferencedMethodInvocationExpression invocation) {
+    JIdExpression caller = invocation.getReferencedVariable();
+    Value callerValue = evaluate((JRightHandSide) caller, (JType) caller.getExpressionType());
+    assert (callerValue instanceof StringValue);
+
+    JExpression param = invocation.getParameterExpressions().get(0);
+    Value paramValue = evaluate((JRightHandSide) param, (JType) param.getExpressionType());
+    assert (paramValue instanceof NumericValue);
+
+    int index = (int) ((NumericValue) paramValue).longValue();
+    Set<Character> chars = ((StringValue) callerValue).getValueDomain().getCharsAt(index);
+    return new CharValue(chars);
   }
 
   /**

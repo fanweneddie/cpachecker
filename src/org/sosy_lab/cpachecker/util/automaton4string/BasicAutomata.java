@@ -87,7 +87,8 @@ final public class BasicAutomata {
 		State s = new State();
 		a.initial = s;
 		s.accept = true;
-		s.transitions.add(new Transition(Character.MIN_VALUE, Character.MAX_VALUE, s));
+		// we set the character range as ASCII code, in order to reduce space
+		s.transitions.add(new Transition(Character.MIN_VALUE, (char) 0xff, s));
 		a.deterministic = true;
 		return a;
 	}

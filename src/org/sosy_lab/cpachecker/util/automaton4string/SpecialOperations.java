@@ -710,7 +710,6 @@ final public class SpecialOperations {
 			State curState = curPair.getFirst();
 			int curDepth = curPair.getSecond();
 
-
 			if (curDepth == depth) {
 				// delete the out transition from current state
 				if (returnTransitions) {

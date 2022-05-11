@@ -197,4 +197,21 @@ public class TypeChecker {
         (params.size() == 1 || params.size() == 2) &&
         functionNameExpression.toString().equals("substring");
   }
+
+  /**
+   * Check whether the given method is charAt() of String.
+   */
+  public static boolean isCharAt(JReferencedMethodInvocationExpression invocation) {
+    if (!(invocation.getFunctionNameExpression() instanceof JIdExpression)) {
+      return false;
+    }
+
+    JIdExpression functionNameExpression = (JIdExpression) invocation.getFunctionNameExpression();
+    JIdExpression callerObject = invocation.getReferencedVariable();
+    List<JExpression> params = invocation.getParameterExpressions();
+
+    return isJavaGenericStringType(callerObject.getExpressionType()) &&
+        params.size() == 1 &&
+        functionNameExpression.toString().equals("charAt");
+  }
 }
