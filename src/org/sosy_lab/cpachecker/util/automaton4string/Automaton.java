@@ -1104,10 +1104,23 @@ public class Automaton implements Serializable, Cloneable {
 	}
 
 	/**
-	 * Get the automaton that accepts the "sublanguage" of [start, end).
+	 * See {@link SpecialOperations#getSubAutomaton(int, int)}.
 	 */
 	public Automaton getSubAutomaton(int start, int end) {
-		// todo
-		return this;
+		return SpecialOperations.getSubAutomaton(start, end, this);
+	}
+
+	/**
+	 * See {@link SpecialOperations#getCharsAt(int, Automaton)}.
+	 */
+	public Set<Character> getCharsAt(int depth) {
+		return SpecialOperations.getCharsAt(depth, this);
+	}
+
+	/**
+	 * See {@link SpecialOperations#getShortestStringLength(Automaton)}.
+	 */
+	public int getShortestStringLength() {
+		return SpecialOperations.getShortestStringLength(this);
 	}
 }

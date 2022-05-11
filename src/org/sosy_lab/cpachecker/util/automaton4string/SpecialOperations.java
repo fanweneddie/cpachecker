@@ -35,9 +35,13 @@ package org.sosy_lab.cpachecker.util.automaton4string;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
+import java.util.Stack;
 import java.util.TreeSet;
+import org.sosy_lab.cpachecker.util.Pair;
 
 /**
  * Special automata operations.
@@ -601,5 +605,118 @@ final public class SpecialOperations {
 		ws.add('\r');
 		map.put(' ', ws);
 		return a.subst(map);
+	}
+
+	/**
+	 * Get the automaton that accepts the "sublanguage" of [start, end).
+	 * @param start
+	 * @param end
+	 * @param a
+	 * @return
+	 */
+	public static Automaton getSubAutomaton(int start, int end, Automaton a) {
+
+	}
+
+	/**
+	 * Return the set of chars at a given depth in the given automaton.
+	 * @param depth the given depth, or can be seen as the index of the chars
+	 * @param a the given automaton
+	 * @return the set of chars, or am empty set
+	 * if <code>depth</code> >= the length of longest string represented by <code>a</code>
+	 */
+	public static Set<Character> getCharsAt(int depth, Automaton a) {
+		Set<Character> chars = new HashSet<>();
+		// if the automaton only describes a singleton string,
+		// directly return a singleton of the char at the given depth
+		if (a.isSingleton()) {
+			if (depth < a.singleton.length()) {
+				chars.add(a.singleton.charAt(depth));
+			}
+			return chars;
+		}
+
+		// do DFS to search the characters at the given depth in DFA
+		a = a.cloneExpandedIfRequired();
+		a.determinize();
+		// the work list for DFS, whose element is the pair of state and its depth
+		Stack<Pair<State, Integer>> workList = new Stack<>();
+		// initialize by adding the initial state
+		workList.add(Pair.of(a.initial, 0));
+
+		while (!workList.empty()) {
+			Pair<State, Integer> curPair = workList.pop();
+			State curState = curPair.getFirst();
+			int curDepth = curPair.getSecond();
+
+			// collect the chars at the transition of this depth
+			if (curDepth == depth) {
+				for (Transition transition : curState.transitions) {
+					chars.addAll(transition.getChars());
+				}
+				continue;
+			}
+
+			for (Transition transition : curState.transitions) {
+				State nextState = transition.to;
+				Pair<State, Integer> nextPair = Pair.of(nextState, curDepth + 1);
+				workList.add(nextPair);
+			}
+		}
+
+		return chars;
+	}
+
+	/**
+	 * Return the length of the shortest string represented by an automaton.
+	 * @param a the given automaton
+	 * @return the shortest length,
+	 * 	or -1 if there is no limited string (actually impossible) in <code>a</code>
+	 */
+	public static int getShortestStringLength(Automaton a) {
+		// if the automaton only describes a singleton string,
+		// directly return the length of the string
+		if (a.isSingleton()) {
+			return a.singleton.length();
+		}
+
+		// do BFS to search the shortest length of a simple path to an accepted state in DFA
+		a = a.cloneExpandedIfRequired();
+		a.determinize();
+		// we globally store the depth and the flag of being visited of each state
+		Map<State, Integer> depthMap = new HashMap<>();
+		Map<State, Boolean> visitedMap = new HashMap<>();
+		// the work list for BFS
+		Queue<State> workList = new LinkedList<>();
+		// initialize by adding the initial state
+		depthMap.put(a.initial, 0);
+		visitedMap.put(a.initial, false);
+		workList.add(a.initial);
+
+		while (!workList.isEmpty()) {
+			State curState = workList.poll();
+			int curDepth = depthMap.get(curState);
+			boolean curVisited = visitedMap.get(curState);
+			// avoid revisiting a state
+			if (curVisited) {
+				continue;
+			} else {
+				visitedMap.put(curState, true);
+			}
+
+			if (curState.isAccept()) {
+				return curDepth;
+			}
+
+			for (Transition transition : curState.transitions) {
+				State nextState = transition.to;
+				depthMap.put(nextState, curDepth + 1);
+				visitedMap.put(nextState, false);
+				workList.add(nextState);
+			}
+		}
+
+		// all remaining states have been visited, so there is no simple path to an accepted state
+		return -1;
 	}
 }

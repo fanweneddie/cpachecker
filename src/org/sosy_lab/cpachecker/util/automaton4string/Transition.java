@@ -33,6 +33,8 @@
 package org.sosy_lab.cpachecker.util.automaton4string;
 
 import java.io.Serializable;
+import java.util.HashSet;
+import java.util.Set;
 
 /** 
  * <code>Automaton</code> transition. 
@@ -95,6 +97,17 @@ public class Transition implements Serializable, Cloneable {
 	/** Returns destination of this transition. */
 	public State getDest() {
 		return to;
+	}
+
+	/**
+	 * Returns the set of chars that are identified by this transition.
+	 */
+	public Set<Character> getChars() {
+		Set<Character> chars = new HashSet<>();
+		for (char c = min; c <= max; ++c) {
+			chars.add(c);
+		}
+		return chars;
 	}
 	
 	/** 
