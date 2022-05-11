@@ -163,4 +163,21 @@ public class TypeChecker {
 
     return type.getReturnType().getName().equals("java.lang.StringBuilder");
   }
+
+  /**
+   * Check whether the given method is length() of String.
+   */
+  public static boolean isLength(JReferencedMethodInvocationExpression invocation) {
+    if (!(invocation.getFunctionNameExpression() instanceof JIdExpression)) {
+      return false;
+    }
+
+    JIdExpression functionNameExpression = (JIdExpression) invocation.getFunctionNameExpression();
+    JIdExpression callerObject = invocation.getReferencedVariable();
+    List<JExpression> params = invocation.getParameterExpressions();
+
+    return isJavaStringBuilderType(callerObject.getExpressionType()) &&
+        params.size() == 0 &&
+        functionNameExpression.toString().equals("length");
+  }
 }

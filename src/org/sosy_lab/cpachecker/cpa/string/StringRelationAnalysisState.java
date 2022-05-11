@@ -179,7 +179,7 @@ public final class StringRelationAnalysisState
   }
 
   /**
-   * make two memory locations equal.
+   * Make two memory locations equal.
    * @param pMemoryLocation1 the first given memory location
    * @param pMemoryLocation2 the second given memory location
    */
@@ -190,7 +190,17 @@ public final class StringRelationAnalysisState
   }
 
   /**
-   * make the first memory location as the concatenation of the second and third memory location.
+   * Make the given length variable as the length of the given string variable.
+   * @param lengthVariable the given length variable
+   * @param stringVariable the given string variable
+   */
+  public void makeLengthOf(MemoryLocation lengthVariable,
+                           MemoryLocation stringVariable) {
+    addRelation(lengthVariable, stringVariable, StringRelationLabel.LENGTH_OF);
+  }
+
+  /**
+   * Make the first memory location as the concatenation of the second and third memory location.
    * @param pMemoryLocationTo the first given memory location, which is the result of concatenation
    * @param pMemoryLocationFrom1 the second given memory location, which is the prefix of concatenation
    * @param pMemoryLocationFrom2 the third given memory location, which is the suffix of concatenation
@@ -206,7 +216,7 @@ public final class StringRelationAnalysisState
   }
 
   /**
-   * make the given memory location reverse to others.
+   * Make the given memory location reverse to others.
    * @param pMemoryLocation the given memory location
    */
   public void makeReverse(MemoryLocation pMemoryLocation) {
@@ -458,7 +468,9 @@ public final class StringRelationAnalysisState
     CONCAT_TO,
     /** y = (reverse x) concat z, so x reversely concatenates to y */
     REVERSE_CONCAT_TO,
-    /** z = (x or reverse x) concat (y or reverse y), so x concatenates  */
-    CONCAT_WITH
+    /** z = (x or reverse x) concat (y or reverse y), so x concatenates with y */
+    CONCAT_WITH,
+    /** y = length(x), so y is the length of x */
+    LENGTH_OF
   }
 }

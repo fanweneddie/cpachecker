@@ -265,6 +265,10 @@ public class StringRelationAnalysisTransferRelation
       if (TypeChecker.isToString(invocation)) {
         return handleToString(LHSVariable, invocation, newState);
       }
+
+      if (TypeChecker.isLength(invocation)) {
+        return handleLength(LHSVariable, invocation, newState);
+      }
     }
 
     return newState;
@@ -401,6 +405,14 @@ public class StringRelationAnalysisTransferRelation
     return curState;
   }
 
+  /**
+   * Handle a toString() invocation.
+   * We need to add an equality relation between <code>returnValue</code> and <code>callerVariable</code>.
+   * @param returnValue the return value of the invocation
+   * @param invocation the given invocation
+   * @param curState the current abstract state
+   * @return the new abstract state after <code>invocation</code>
+   */
   private StringRelationAnalysisState handleToString(MemoryLocation returnValue,
                                                      JReferencedMethodInvocationExpression invocation,
                                                      StringRelationAnalysisState curState) {
@@ -414,6 +426,31 @@ public class StringRelationAnalysisTransferRelation
     // kill the original relation with LHSVariable
     curState.killVariableRelation(returnValue);
     curState.makeEqual(returnValue, callerVariable);
+
+    return curState;
+  }
+
+  /**
+   * Handle a length() invocation.
+   * We need to add an LENGTH_OF relation between <code>returnValue</code> and <code>callerVariable</code>.
+   * @param returnValue the return value of the invocation
+   * @param invocation the given invocation
+   * @param curState the current abstract state
+   * @return the new abstract state after <code>invocation</code>
+   */
+  private StringRelationAnalysisState handleLength(MemoryLocation returnValue,
+                                                   JReferencedMethodInvocationExpression invocation,
+                                                   StringRelationAnalysisState curState) {
+    JIdExpression caller = invocation.getReferencedVariable();
+    MemoryLocation callerVariable = StringVariableGenerator.getExpressionMemLocation(caller, functionName);
+
+    if (callerVariable == null) {
+      return curState;
+    }
+
+    // kill the original relation with LHSVariable
+    curState.killVariableRelation(returnValue);
+    curState.makeLengthOf(returnValue, callerVariable);
 
     return curState;
   }

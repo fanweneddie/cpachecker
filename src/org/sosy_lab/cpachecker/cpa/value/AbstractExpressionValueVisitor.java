@@ -2171,6 +2171,10 @@ public abstract class AbstractExpressionValueVisitor
       if (TypeChecker.isToString(invocation)) {
         return getCallerValue(invocation);
       }
+      // consider length()
+      if (TypeChecker.isLength(invocation)) {
+        return getLengthValue(invocation);
+      }
     }
 
     return UnknownValue.getInstance();
@@ -2844,6 +2848,20 @@ public abstract class AbstractExpressionValueVisitor
     assert (callerValue instanceof StringValue);
 
     return callerValue;
+  }
+
+  /**
+   * Return the value of caller's length.
+   */
+  private Value getLengthValue(JReferencedMethodInvocationExpression invocation) {
+    JIdExpression caller = invocation.getReferencedVariable();
+    Value callerValue = evaluate((JRightHandSide) caller, (JType) caller.getExpressionType());
+    assert (callerValue instanceof StringValue);
+
+    int length = ((StringValue) callerValue).getValueDomain().getShortestStringLength();
+    NumericValue lengthValue = new NumericValue(length);
+
+    return lengthValue;
   }
 
   /**
