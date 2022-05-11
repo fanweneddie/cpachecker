@@ -2175,6 +2175,10 @@ public abstract class AbstractExpressionValueVisitor
       if (TypeChecker.isLength(invocation)) {
         return getLengthValue(invocation);
       }
+      // consider substring()
+      if (TypeChecker.isSubstring(invocation)) {
+        return getSubstringValue(invocation);
+      }
     }
 
     return UnknownValue.getInstance();
@@ -2823,7 +2827,7 @@ public abstract class AbstractExpressionValueVisitor
       Value endValue = evaluate((JRightHandSide) end, (JType) end.getExpressionType());
       assert (startValue instanceof NumericValue);
       assert (endValue instanceof NumericValue);
-      paramValue = getSubstringValue((StringValue) paramValue, (NumericValue) startValue, (NumericValue) endValue);
+      paramValue = getSubstringValueOfString((StringValue) paramValue, (NumericValue) startValue, (NumericValue) endValue);
       assert (paramValue instanceof StringValue);
     }
 
@@ -2865,6 +2869,34 @@ public abstract class AbstractExpressionValueVisitor
   }
 
   /**
+   * Return the value of a substring of the caller.
+   */
+  private Value getSubstringValue(JReferencedMethodInvocationExpression invocation) {
+    JIdExpression caller = invocation.getReferencedVariable();
+    Value callerValue = evaluate((JRightHandSide) caller, (JType) caller.getExpressionType());
+    assert (callerValue instanceof StringValue);
+
+    // get the first parameter as the start of substring (inclusive)
+    JExpression paramStart = invocation.getParameterExpressions().get(0);
+    Value paramStartValue = evaluate((JRightHandSide) paramStart, (JType) paramStart.getExpressionType());
+    assert (paramStartValue instanceof NumericValue);
+
+    // get the second parameter as the end of substring (exclusive)
+    // if it does not exist, the default value is Integer.MAX_VALUE
+    Value paramEndValue = null;
+    if (invocation.getParameterExpressions().size() > 1) {
+      JExpression paramEnd = invocation.getParameterExpressions().get(1);
+      paramEndValue = evaluate((JRightHandSide) paramEnd, (JType) paramEnd.getExpressionType());
+      assert (paramEndValue instanceof NumericValue);
+    } else {
+      paramEndValue = new NumericValue(Integer.MAX_VALUE);
+    }
+
+    return getSubstringValueOfString((StringValue) callerValue, (NumericValue) paramStartValue,
+                                    (NumericValue) paramEndValue);
+  }
+
+  /**
    * Return the value of a new string.
    */
   private Value getNewStringValue(JClassInstanceCreation initialization) {
@@ -2888,7 +2920,7 @@ public abstract class AbstractExpressionValueVisitor
    * @param startValue the value of starting index (inclusive)
    * @param endValue the value of ending index (not inclusive)
    */
-  private Value getSubstringValue(StringValue stringValue, NumericValue startValue, NumericValue endValue) {
+  private Value getSubstringValueOfString(StringValue stringValue, NumericValue startValue, NumericValue endValue) {
 
       int start = (int) startValue.longValue();
       int end = (int) endValue.longValue();

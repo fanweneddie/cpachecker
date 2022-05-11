@@ -617,6 +617,10 @@ final public class SpecialOperations {
 		// if the automaton only describes a singleton string,
 		// directly return an automaton of the substring
 		if (a.isSingleton()) {
+			int length = a.singleton.length();
+			if (end > length) {
+				end = length;
+			}
 			String newSingleton = a.singleton.substring(start, end);
 			Automaton newAutomaton = BasicAutomata.makeString(newSingleton);
 			return newAutomaton;

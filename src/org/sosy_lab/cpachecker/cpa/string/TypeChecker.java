@@ -176,8 +176,25 @@ public class TypeChecker {
     JIdExpression callerObject = invocation.getReferencedVariable();
     List<JExpression> params = invocation.getParameterExpressions();
 
-    return isJavaStringBuilderType(callerObject.getExpressionType()) &&
+    return isJavaGenericStringType(callerObject.getExpressionType()) &&
         params.size() == 0 &&
         functionNameExpression.toString().equals("length");
+  }
+
+  /**
+   * Check whether the given method is substring() of String.
+   */
+  public static boolean isSubstring(JReferencedMethodInvocationExpression invocation) {
+    if (!(invocation.getFunctionNameExpression() instanceof JIdExpression)) {
+      return false;
+    }
+
+    JIdExpression functionNameExpression = (JIdExpression) invocation.getFunctionNameExpression();
+    JIdExpression callerObject = invocation.getReferencedVariable();
+    List<JExpression> params = invocation.getParameterExpressions();
+
+    return isJavaGenericStringType(callerObject.getExpressionType()) &&
+        (params.size() == 1 || params.size() == 2) &&
+        functionNameExpression.toString().equals("substring");
   }
 }
