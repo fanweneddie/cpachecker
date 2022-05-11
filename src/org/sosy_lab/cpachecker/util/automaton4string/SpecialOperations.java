@@ -609,54 +609,123 @@ final public class SpecialOperations {
 
 	/**
 	 * Get the automaton that accepts the "sublanguage" of [start, end).
-	 * @param start
-	 * @param end
-	 * @param a
-	 * @return
+	 * @param start the starting index (inclusive)
+	 * @param end the ending index(exclusive)
+	 * @param a the given automaton
 	 */
 	public static Automaton getSubAutomaton(int start, int end, Automaton a) {
+		// if the automaton only describes a singleton string,
+		// directly return an automaton of the substring
+		if (a.isSingleton()) {
+			String newSingleton = a.singleton.substring(start, end);
+			Automaton newAutomaton = BasicAutomata.makeString(newSingleton);
+			return newAutomaton;
+		}
 
+		// get the new start states at the depth of start
+		a = a.cloneExpandedIfRequired();
+		a.determinize();
+		Set<State> startStates = (Set<State>) getInfoAt(start, a.initial,
+					false, true, false);
+		// get the transitions starting from each new start states
+		// inside the transitions, the sub-automaton ends at the depth of end
+		for (State state : startStates) {
+			Set<Transition> subTransitions = (Set<Transition>) getInfoAt(end - start, state,
+							false, false, true);
+			state.resetTransitions();
+			state.addTransitions(subTransitions);
+		}
+		// create another single new state to point to all new start states
+		State newStartState = new State();
+		for (State state : startStates) {
+			newStartState.addEpsilon(state);
+		}
+		return BasicAutomata.makeNFAByInitialState(newStartState);
 	}
 
 	/**
 	 * Return the set of chars at a given depth in the given automaton.
 	 * @param depth the given depth, or can be seen as the index of the chars
 	 * @param a the given automaton
-	 * @return the set of chars, or am empty set
-	 * if <code>depth</code> >= the length of longest string represented by <code>a</code>
+	 * @return the set of chars, or an empty set
+	 * 	if <code>depth</code> >= the length of longest string represented by <code>a</code>
 	 */
 	public static Set<Character> getCharsAt(int depth, Automaton a) {
-		Set<Character> chars = new HashSet<>();
 		// if the automaton only describes a singleton string,
 		// directly return a singleton of the char at the given depth
 		if (a.isSingleton()) {
+			Set<Character> chars = new HashSet<>();
 			if (depth < a.singleton.length()) {
 				chars.add(a.singleton.charAt(depth));
 			}
 			return chars;
 		}
 
-		// do DFS to search the characters at the given depth in DFA
 		a = a.cloneExpandedIfRequired();
 		a.determinize();
+		return (Set<Character>) getInfoAt(depth, a.initial,
+					true, false, false);
+	}
+
+	/**
+	 * Return the information at a given depth from a given initial state.
+	 * @param depth the given depth, or can be seen as the index of the chars
+	 * @param initialState the given initial state
+	 * @param returnChars whether to return a set of chars identified at <code>depth</code>
+	 * @param returnStates whether to return a set of states reached at <code>depth</code>
+	 * @param returnTransitions whether to return a set of transitions starting at <code>initialState</code> to depth
+	 * @return the set of info if only one of <code>returnChars</code>, <code>returnStates</code>
+	 * 	and <code>returnTransitions</code> is true; Else, return an empty set
+	 */
+	private static Set<?> getInfoAt(int depth, State initialState,
+					boolean returnChars,
+					boolean returnStates,
+					boolean returnTransitions) {
+		// sanity check for input parameter
+		if (!onlyOneIsTrue(returnChars, returnStates, returnTransitions)) {
+			return new HashSet<>();
+		}
+
+		// the collection for 3 separate scenario
+		Set<Character> chars = new HashSet<>();
+		Set<State> states = new HashSet<>();
+		Set<Transition> transitions = new HashSet<>();
+
+		// do DFS to search the characters at the given depth from state
 		// the work list for DFS, whose element is the pair of state and its depth
 		Stack<Pair<State, Integer>> workList = new Stack<>();
 		// initialize by adding the initial state
-		workList.add(Pair.of(a.initial, 0));
+		workList.add(Pair.of(initialState, 0));
+		// add initial transitions to get the sub-transitions from 0 to depth
+		if (returnTransitions && depth > 0) {
+			transitions.addAll(initialState.transitions);
+		}
 
 		while (!workList.empty()) {
 			Pair<State, Integer> curPair = workList.pop();
 			State curState = curPair.getFirst();
 			int curDepth = curPair.getSecond();
 
-			// collect the chars at the transition of this depth
+
 			if (curDepth == depth) {
-				for (Transition transition : curState.transitions) {
-					chars.addAll(transition.getChars());
+				// delete the out transition from current state
+				if (returnTransitions) {
+					curState.resetTransitions();
+					curState.setAccept(true);
+				} else {
+					// collect the chars or states at the transition of this depth
+					for (Transition transition : curState.transitions) {
+						if (returnChars) {
+							chars.addAll(transition.getChars());
+						} else if (returnStates) {
+							states.add(transition.to);
+						}
+					}
 				}
 				continue;
 			}
 
+			// explore successors (without a guaranteed sequence)
 			for (Transition transition : curState.transitions) {
 				State nextState = transition.to;
 				Pair<State, Integer> nextPair = Pair.of(nextState, curDepth + 1);
@@ -664,7 +733,24 @@ final public class SpecialOperations {
 			}
 		}
 
-		return chars;
+		if (returnChars) {
+			return chars;
+		} else if (returnStates) {
+			return states;
+		} else {
+			return transitions;
+		}
+	}
+
+	/**
+	 * Check whether only one boolean among three is true.
+	 */
+	private static boolean onlyOneIsTrue(boolean a, boolean b, boolean c) {
+		if ((a && !b && !c) || (!a && b && !c) || (!a && !b && c)) {
+			return true;
+		} else {
+			return false;
+		}
 	}
 
 	/**

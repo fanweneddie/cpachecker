@@ -86,6 +86,14 @@ public class State implements Serializable, Comparable<State> {
 	public void addTransition(Transition t)	{
 		transitions.add(t);
 	}
+
+	/**
+	 * Adds a set of outgoing transitions.
+	 * @param ts transitions
+	 */
+	public void addTransitions(Set<Transition> ts)	{
+		transitions.addAll(ts);
+	}
 	
 	/** 
 	 * Sets acceptance for this state.

@@ -45,6 +45,20 @@ final public class BasicAutomata {
 	
 	private BasicAutomata() {}
 
+	/**
+	 * Make a new NFA by a given initial state
+	 */
+	public static Automaton makeNFAByInitialState(State initialState) {
+		Automaton a = new Automaton();
+		if (initialState == null) {
+			a.initial = new State();
+		} else {
+			a.initial = initialState;
+		}
+		a.deterministic = false;
+		return a;
+	}
+
 	/** 
 	 * Returns a new (deterministic) automaton with the empty language. 
 	 */
