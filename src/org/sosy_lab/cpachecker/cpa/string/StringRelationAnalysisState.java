@@ -239,6 +239,8 @@ public final class StringRelationAnalysisState
     // consider the relation ending at pMemoryLocation
     // the original start node of a concatenation chain
     MemoryLocation startNode = null;
+    // whether there is a concat to pMemoryLocation
+    boolean hasConcat = false;
     for (RelationEdge<MemoryLocation, StringRelationLabel> re :
         relationGraph.inEdges(pMemoryLocation)) {
       if (re.isSelfLoop()) {
@@ -255,10 +257,12 @@ public final class StringRelationAnalysisState
           break;
         case CONCAT_TO:
           re.setLabel(StringRelationLabel.REVERSE_CONCAT_TO);
+          hasConcat = true;
           startNode = getStartOfConcatChain(re);
           break;
         case REVERSE_CONCAT_TO:
           re.setLabel(StringRelationLabel.CONCAT_TO);
+          hasConcat = true;
           startNode = getStartOfConcatChain(re);
           break;
         default:
@@ -266,8 +270,10 @@ public final class StringRelationAnalysisState
       }
     }
 
-    assertNotNull(startNode);
-    reverseConcatFrom(startNode);
+    if (hasConcat) {
+      assertNotNull(startNode);
+      reverseConcatFrom(startNode);
+    }
   }
 
   /**
