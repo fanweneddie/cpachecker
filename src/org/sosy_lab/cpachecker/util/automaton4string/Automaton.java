@@ -1123,4 +1123,8 @@ public class Automaton implements Serializable, Cloneable {
 	public int getShortestStringLength() {
 		return SpecialOperations.getShortestStringLength(this);
 	}
+
+	public Automaton setLength(int length) {
+		return SpecialOperations.SetLength(length, this);
+	}
 }

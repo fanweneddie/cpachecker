@@ -36,6 +36,10 @@ public enum JBasicType {
     return this == BYTE || this == CHAR || this == SHORT || this == INT || this == LONG;
   }
 
+  public boolean isUnspecifiedType() {
+    return this == UNSPECIFIED;
+  }
+
   /**
    * Returns an unambiguous String representation of this type. from all other <code>JBasicType
    * </code> enum constants.

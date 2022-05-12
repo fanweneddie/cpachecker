@@ -182,6 +182,23 @@ public class TypeChecker {
   }
 
   /**
+   * Check whether the given method is setLength() of String.
+   */
+  public static boolean isSetLength(JReferencedMethodInvocationExpression invocation) {
+    if (!(invocation.getFunctionNameExpression() instanceof JIdExpression)) {
+      return false;
+    }
+
+    JIdExpression functionNameExpression = (JIdExpression) invocation.getFunctionNameExpression();
+    JIdExpression callerObject = invocation.getReferencedVariable();
+    List<JExpression> params = invocation.getParameterExpressions();
+
+    return isJavaGenericStringType(callerObject.getExpressionType()) &&
+        params.size() == 1 &&
+        functionNameExpression.toString().equals("setLength");
+  }
+
+  /**
    * Check whether the given method is substring() of String.
    */
   public static boolean isSubstring(JReferencedMethodInvocationExpression invocation) {

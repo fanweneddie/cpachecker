@@ -41,6 +41,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.Stack;
 import java.util.TreeSet;
+import org.checkerframework.checker.units.qual.A;
 import org.sosy_lab.cpachecker.util.Pair;
 
 /**
@@ -807,5 +808,71 @@ final public class SpecialOperations {
 
 		// all remaining states have been visited, so there is no simple path to an accepted state
 		return -1;
+	}
+
+	/**
+	 * Set the length for a given automaton.
+	 * If the length < the length of automaton, return the sub-automaton;
+	 * Else, add 0 at the tail.
+	 * @param length the given length to be set
+	 * @param a the given automaton
+	 */
+	public static Automaton SetLength(int length, Automaton a) {
+		if (a.isSingleton()) {
+			StringBuilder newString = new StringBuilder(a.singleton);
+			newString.setLength(length);
+			return Automaton.makeString(newString.toString());
+		}
+
+		// do BFS to explore the path from initial state in DFA
+		a = a.cloneExpandedIfRequired();
+		a.determinize();
+		// we globally store the depth and the flag of being visited of each state
+		Map<State, Integer> depthMap = new HashMap<>();
+		Map<State, Boolean> visitedMap = new HashMap<>();
+		// the work list for BFS
+		Queue<State> workList = new LinkedList<>();
+		// initialize by adding the initial state
+		depthMap.put(a.initial, 0);
+		visitedMap.put(a.initial, false);
+		workList.add(a.initial);
+
+		while (!workList.isEmpty()) {
+			State curState = workList.poll();
+			int curDepth = depthMap.get(curState);
+			boolean curVisited = visitedMap.get(curState);
+			// avoid revisiting a state
+			if (curVisited) {
+				continue;
+			} else {
+				visitedMap.put(curState, true);
+			}
+
+			// cut the continuing path
+			if (curDepth == length) {
+				curState.resetTransitions();
+				curState.setAccept(true);
+				continue;
+			}
+
+			// explore successors
+			if (!curState.transitions.isEmpty()) {
+				for (Transition transition : curState.transitions) {
+					State nextState = transition.to;
+					depthMap.put(nextState, curDepth + 1);
+					visitedMap.put(nextState, false);
+					workList.add(nextState);
+				}
+			} else {
+				State newState = new State();
+				Transition newTransition = new Transition((char) 0, newState);
+				curState.addTransition(newTransition);
+				depthMap.put(newState, curDepth + 1);
+				visitedMap.put(newState, false);
+				workList.add(newState);
+			}
+		}
+
+		return a;
 	}
 }

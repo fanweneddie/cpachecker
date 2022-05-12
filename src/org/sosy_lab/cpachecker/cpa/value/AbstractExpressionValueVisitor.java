@@ -2086,6 +2086,10 @@ public abstract class AbstractExpressionValueVisitor
     return type instanceof JSimpleType && ((JSimpleType) type).getType().isFloatingPointType();
   }
 
+  private static boolean isUnspecifiedType(JType type) {
+    return type instanceof JSimpleType && ((JSimpleType) type).getType().isUnspecifiedType();
+  }
+
   @Override
   public Value visit(JIntegerLiteralExpression pE) {
     return new NumericValue(pE.asLong());
@@ -2175,6 +2179,10 @@ public abstract class AbstractExpressionValueVisitor
       // consider length()
       if (TypeChecker.isLength(invocation)) {
         return getLengthValue(invocation);
+      }
+      // consider setLength()
+      if (TypeChecker.isSetLength(invocation)) {
+        return getAfterSetLengthValue(invocation);
       }
       // consider substring()
       if (TypeChecker.isSubstring(invocation)) {
@@ -2618,7 +2626,12 @@ public abstract class AbstractExpressionValueVisitor
 
         return createValue(doubleValue, st.getType());
 
-      } else {
+      }
+      // to avoid throwing exceptions for unspecified type. (which is a forced implementation, not good!!!)
+      else if (isUnspecifiedType(sourceType) || isUnspecifiedType(targetType)) {
+        return value;
+      }
+      else {
         throw new AssertionError(
             "Cast from " + sourceType + " to " + targetType + " not possible.");
       }
@@ -2875,6 +2888,20 @@ public abstract class AbstractExpressionValueVisitor
     NumericValue lengthValue = new NumericValue(length);
 
     return lengthValue;
+  }
+
+  private Value getAfterSetLengthValue(JReferencedMethodInvocationExpression invocation) {
+    JIdExpression caller = invocation.getReferencedVariable();
+    Value callerValue = evaluate((JRightHandSide) caller, (JType) caller.getExpressionType());
+    assert (callerValue instanceof StringValue);
+
+    JExpression length = invocation.getParameterExpressions().get(0);
+    Value lengthValue = evaluate((JRightHandSide) length, (JType) length.getExpressionType());
+    assert (lengthValue instanceof NumericValue);
+
+    int len = (int) ((NumericValue) lengthValue).longValue();
+    Automaton newDomain = ((StringValue) callerValue).getValueDomain().setLength(len);
+    return new StringValue(newDomain);
   }
 
   /**
