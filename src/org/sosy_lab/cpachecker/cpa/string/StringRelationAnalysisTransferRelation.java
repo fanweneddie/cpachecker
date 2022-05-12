@@ -341,6 +341,10 @@ public class StringRelationAnalysisTransferRelation
       return handleStringReverse(invocation);
     }
 
+    if (TypeChecker.isSetLength(invocation)) {
+      return handleSetLength(invocation);
+    }
+
     return state;
   }
 
@@ -456,7 +460,8 @@ public class StringRelationAnalysisTransferRelation
   }
 
   /**
-   * handle reverse() method of StringBuilder.
+   * Handle reverse() method of StringBuilder.
+   * We need to revise the concat and equal relation between the caller object and other strings.
    * @param invocation the invocation of reverse() method
    * @return the new state after <code>invocation</code>
    */
@@ -471,6 +476,28 @@ public class StringRelationAnalysisTransferRelation
 
     StringRelationAnalysisState newState = StringRelationAnalysisState.deepCopyOf(state);
     newState.makeReverse(callerVariable);
+
+    return newState;
+  }
+
+  /**
+   * Handle setLength() method of StringBuilder.
+   * We need to kill the relation between the caller object and other objects,
+   * since the value and length of caller object may be changed.
+   * @param invocation the invocation of reverse() method
+   * @return the new state after <code>invocation</code>
+   */
+  private StringRelationAnalysisState handleSetLength(JReferencedMethodInvocationExpression invocation) {
+
+    JIdExpression callerObject = invocation.getReferencedVariable();
+    MemoryLocation callerVariable = StringVariableGenerator.getExpressionMemLocation(callerObject, functionName);
+
+    if (callerVariable == null) {
+      return state;
+    }
+
+    StringRelationAnalysisState newState = StringRelationAnalysisState.deepCopyOf(state);
+    newState.killVariableRelation(callerVariable);
 
     return newState;
   }
