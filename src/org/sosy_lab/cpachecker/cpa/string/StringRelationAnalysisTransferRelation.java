@@ -144,14 +144,13 @@ public class StringRelationAnalysisTransferRelation
   protected StringRelationAnalysisState handleAssumption(
       AssumeEdge cfaEdge, AExpression expression, boolean truthValue) {
 
-    // whether this assumption is in assertion or condition statement can affect the rigidness of constraint
-    //boolean isAssertion = TypeChecker.isAssertion(cfaEdge);
-
+    // consider a binary expression
     if (isBinaryExpressionOfFunctionResultAndBoolean(expression)) {
       JBinaryExpression binaryExpression = (JBinaryExpression) expression;
       return handleBinaryAssumption(binaryExpression, truthValue);
     }
 
+    // consider a unary expression
     if (isUnaryExpressionOfFunctionReturnValue(expression)) {
       JUnaryExpression unaryExpression = (JUnaryExpression) expression;
       return handleUnaryAssumption(unaryExpression, truthValue);
@@ -196,6 +195,12 @@ public class StringRelationAnalysisTransferRelation
     return state;
   }
 
+  /**
+   * Handle a unary assumption expression consisting of a function result.
+   * @param expression the expression on <code>cfaEdge</code>
+   * @param truthValue the truth value outside <code>expression</code>
+   * @return the new abstract state after this edge
+   */
   private StringRelationAnalysisState handleUnaryAssumption(JUnaryExpression expression,
                                                             boolean truthValue) {
 
@@ -209,6 +214,7 @@ public class StringRelationAnalysisTransferRelation
       boolean finalEquality = XNOR(boolValue, truthValue);
       return handleStringEquals(invocation, finalEquality);
     }
+    // todo: startWith and endWith
 
     return state;
   }
