@@ -2234,9 +2234,10 @@ class ASTConverter {
     JMethodDeclaration declaration = null;
     JExpression referencedVariableName = null;
 
-    if (mb != null && !mb.isStatic) {
+    //I need to get the class or instance that calls the method
+    //if (mb != null && !mb.isStatic) {
       referencedVariableName = convertExpressionWithoutSideEffects(mi.getExpression());
-    }
+    //}
 
     if (methodName instanceof JIdExpression) {
       JIdExpression idExpression = (JIdExpression) methodName;
