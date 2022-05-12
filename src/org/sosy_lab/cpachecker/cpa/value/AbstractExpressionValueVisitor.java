@@ -90,6 +90,9 @@ import org.sosy_lab.cpachecker.cfa.types.java.JBasicType;
 import org.sosy_lab.cpachecker.cfa.types.java.JSimpleType;
 import org.sosy_lab.cpachecker.cfa.types.java.JStringType;
 import org.sosy_lab.cpachecker.cfa.types.java.JType;
+import org.sosy_lab.cpachecker.cpa.string.GlobalVars;
+import org.sosy_lab.cpachecker.cpa.string.StringRelationAnalysisState;
+import org.sosy_lab.cpachecker.cpa.string.TrivialOp;
 import org.sosy_lab.cpachecker.cpa.string.TypeChecker;
 import org.sosy_lab.cpachecker.cpa.value.symbolic.type.SymbolicExpression;
 import org.sosy_lab.cpachecker.cpa.value.symbolic.type.SymbolicValue;
@@ -99,6 +102,7 @@ import org.sosy_lab.cpachecker.cpa.value.type.BooleanValue;
 import org.sosy_lab.cpachecker.cpa.value.type.CharValue;
 import org.sosy_lab.cpachecker.cpa.value.type.EnumConstantValue;
 import org.sosy_lab.cpachecker.cpa.value.type.FunctionValue;
+import org.sosy_lab.cpachecker.cpa.value.type.InvocationValue;
 import org.sosy_lab.cpachecker.cpa.value.type.NullValue;
 import org.sosy_lab.cpachecker.cpa.value.type.NumericValue;
 import org.sosy_lab.cpachecker.cpa.value.type.NumericValue.NegativeNaN;
@@ -143,7 +147,10 @@ public abstract class AbstractExpressionValueVisitor
   /** Length of type DOUBLE in Java (in bit). */
   private static final int SIZE_OF_JAVA_DOUBLE = 64;
 
-  //private final ValueAnalysisState state;
+  // for getting the state of ValueAnalysis and StringRelationAnalysis
+  private final ValueAnalysisState valueState;
+
+  private final StringRelationAnalysisState stringRelationState;
   private final String functionName;
   private final MachineModel machineModel;
 
@@ -1640,7 +1647,12 @@ public abstract class AbstractExpressionValueVisitor
 
       return calculateBooleanOperation(lVal, rVal, pOperator);
 
-    } else if (pOperator == JBinaryExpression.BinaryOperator.EQUALS
+    } else if (pLValue instanceof InvocationValue) {
+      InvocationValue invocationValue = (InvocationValue) pLValue;
+      JReferencedMethodInvocationExpression invocation = invocationValue.getInvocation();
+      return calculateAssumptionResult(invocation, pRValue, pOperator);
+  }
+    else if (pOperator == JBinaryExpression.BinaryOperator.EQUALS
         || pOperator == JBinaryExpression.BinaryOperator.NOT_EQUALS) {
       // true if EQUALS & (lValue == rValue) or if NOT_EQUALS & (lValue != rValue). False
       // otherwise. This is equivalent to an XNOR.
@@ -1978,6 +1990,62 @@ public abstract class AbstractExpressionValueVisitor
         ^ pLeftValue.equals(pRightValue));
   }
 
+  /**
+   * Calculate the result of an assumption with an invocation, an expected value and an operator.
+   * @param invocation the given invocation to evaluate a value
+   * @param rightValue the given expected value
+   * @param operator the given relational operator
+   */
+  private Value calculateAssumptionResult(JReferencedMethodInvocationExpression invocation,
+                                          Value rightValue,
+                                          JBinaryExpression.BinaryOperator operator) {
+
+    // consider string equals()
+    if (TypeChecker.isStringEquals(invocation)) {
+        // e.g. in !(a == false), boolValue = false, and isEquality is true (since the operator is ==),
+        // then internalEquality is XNOR(boolValue, isEquality) = false
+        assert (rightValue instanceof BooleanValue);
+        boolean boolValue = ((BooleanValue) rightValue).isTrue();
+        boolean isEquality = TypeChecker.isEqualOperator(operator);
+        boolean internalEquality = TrivialOp.XNOR(boolValue, isEquality);
+        return calculateStringEqual(invocation, internalEquality);
+    }
+    return null;
+  }
+
+  /**
+   * Calculate the result of string equals() invocation.
+   * @param invocation the string equals() invocation
+   * @param truthValue equal or un-equal
+   */
+  private Value calculateStringEqual(JReferencedMethodInvocationExpression invocation,
+                                     boolean truthValue) {
+
+    if (GlobalVars.isAssertion) {
+      return calculateStringEqualInAssertion(invocation, truthValue);
+    } else {
+      return calculateStringEqualInCondition(invocation, truthValue);
+    }
+  }
+
+  /**
+   * Calculate the result of string equals() invocation
+   * where the assumption is in an assertion statement (More rigid).
+   */
+  private Value calculateStringEqualInAssertion(JReferencedMethodInvocationExpression invocation,
+                                                boolean truthValue) {
+    return null;
+  }
+
+  /**
+   * Calculate the result of string equals() invocation
+   * where the assumption is in a conditional statement (Less rigid).
+   */
+  private Value calculateStringEqualInCondition(JReferencedMethodInvocationExpression invocation,
+                                                boolean truthValue) {
+    return null;
+  }
+
   @Override
   public Value visit(JIdExpression idExp) {
 
@@ -2191,6 +2259,10 @@ public abstract class AbstractExpressionValueVisitor
       // consider charAt()
       if (TypeChecker.isCharAt(invocation)) {
         return getCharValue(invocation);
+      }
+      // consider boolean methods
+      if (TypeChecker.isBooleanMethod(invocation)) {
+        return getInvocationValue(invocation);
       }
     }
 
@@ -2605,6 +2677,11 @@ public abstract class AbstractExpressionValueVisitor
       return castToStringValue(value);
     }
 
+    // to avoid throwing exceptions for unspecified type. (which is a forced implementation, not good!!!)
+    if (isUnspecifiedType(sourceType) || isUnspecifiedType(targetType)) {
+      return value;
+    }
+
     // Other than symbolic values, we can only cast numeric values, for now.
     if (!value.isNumericValue()) {
       logger.logf(Level.FINE, "Can not cast Java value %s to %s", value.toString(), targetType.toString());
@@ -2626,12 +2703,7 @@ public abstract class AbstractExpressionValueVisitor
 
         return createValue(doubleValue, st.getType());
 
-      }
-      // to avoid throwing exceptions for unspecified type. (which is a forced implementation, not good!!!)
-      else if (isUnspecifiedType(sourceType) || isUnspecifiedType(targetType)) {
-        return value;
-      }
-      else {
+      } else {
         throw new AssertionError(
             "Cast from " + sourceType + " to " + targetType + " not possible.");
       }
@@ -2947,6 +3019,13 @@ public abstract class AbstractExpressionValueVisitor
     int index = (int) ((NumericValue) paramValue).longValue();
     Set<Character> chars = ((StringValue) callerValue).getValueDomain().getCharsAt(index);
     return new CharValue(chars);
+  }
+
+  /**
+   * Return the wrapper of the given invocation.
+   */
+  private Value getInvocationValue(JReferencedMethodInvocationExpression invocation) {
+    return new InvocationValue(invocation);
   }
 
   /**

@@ -113,6 +113,8 @@ import org.sosy_lab.cpachecker.cpa.pointer2.util.ExplicitLocationSet;
 import org.sosy_lab.cpachecker.cpa.pointer2.util.LocationSet;
 import org.sosy_lab.cpachecker.cpa.rtt.NameProvider;
 import org.sosy_lab.cpachecker.cpa.rtt.RTTState;
+import org.sosy_lab.cpachecker.cpa.string.GlobalVars;
+import org.sosy_lab.cpachecker.cpa.string.TypeChecker;
 import org.sosy_lab.cpachecker.cpa.threading.ThreadingState;
 import org.sosy_lab.cpachecker.cpa.value.ValueAnalysisState.ValueAndType;
 import org.sosy_lab.cpachecker.cpa.value.symbolic.ConstraintsStrengthenOperator;
@@ -598,6 +600,8 @@ public class ValueAnalysisTransferRelation
   protected ValueAnalysisState handleAssumption(
       AssumeEdge cfaEdge, AExpression expression, boolean truthValue)
       throws UnrecognizedCodeException {
+    // record whether the assumption is in an assertion statement to the global variables
+    GlobalVars.isAssertion = TypeChecker.isAssertion(cfaEdge);
     return handleAssumption(expression, truthValue);
   }
 

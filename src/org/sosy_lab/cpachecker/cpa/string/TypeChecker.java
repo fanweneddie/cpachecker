@@ -128,6 +128,14 @@ public class TypeChecker {
   }
 
   /**
+   * Check whether the given method returns a boolean value.
+   */
+  public static boolean isBooleanMethod(JReferencedMethodInvocationExpression invocation) {
+    // todo: wait for startwith(), contains() and endwith()
+    return isStringEquals(invocation); // ||
+  }
+
+  /**
    * Check whether the given method is equals() of String.
    */
   public static boolean isStringEquals(JReferencedMethodInvocationExpression invocation) {

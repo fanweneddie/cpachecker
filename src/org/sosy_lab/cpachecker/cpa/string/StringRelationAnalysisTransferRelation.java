@@ -187,7 +187,7 @@ public class StringRelationAnalysisTransferRelation
       // e.g. in !(a == false), truthValue = "!" = false, and boolValue = false,
       // and isEquality is true (since the operator is ==), then finalEquality is the XNOR of them = true
       boolean isEquality = TypeChecker.isEqualOperator(expression.getOperator());
-      boolean finalEquality = XNOR(boolValue, XNOR(truthValue, isEquality));
+      boolean finalEquality = TrivialOp.XNOR(boolValue, TrivialOp.XNOR(truthValue, isEquality));
       return handleStringEquals(invocation, finalEquality);
     }
     // todo: startWith and endWith
@@ -211,7 +211,7 @@ public class StringRelationAnalysisTransferRelation
       // the boolean value in the expression
       // e.g. in [!a], truthValue = true, and booleanValue = "!" = false
       boolean boolValue = !TypeChecker.isNOTOperator(expression.getOperator());
-      boolean finalEquality = XNOR(boolValue, truthValue);
+      boolean finalEquality = TrivialOp.XNOR(boolValue, truthValue);
       return handleStringEquals(invocation, finalEquality);
     }
     // todo: startWith and endWith
@@ -627,9 +627,5 @@ public class StringRelationAnalysisTransferRelation
     JReferencedMethodInvocationExpression invocation = state.getInvocation(variable);
 
     return invocation;
-  }
-
-  private static boolean XNOR(boolean a, boolean b) {
-    return !(a^b);
   }
 }
