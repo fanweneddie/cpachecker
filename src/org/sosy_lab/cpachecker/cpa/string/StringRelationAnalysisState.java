@@ -129,7 +129,7 @@ public final class StringRelationAnalysisState
    * @param pMemoryLocation1 the first given variable, which must not be null
    * @param pMemoryLocation2 the second given variable, which must not be null
    * @param pStringRelationLabel the given label, which must not be null
-   * @return true if the graph is modified.
+   * @return true if the graph is modified
    */
   private boolean addRelation(MemoryLocation pMemoryLocation1,
                              MemoryLocation pMemoryLocation2,
@@ -143,6 +143,34 @@ public final class StringRelationAnalysisState
     RelationEdge<MemoryLocation, StringRelationLabel> newEdge = new RelationEdge<>(
               pMemoryLocation1, pMemoryLocation2, pStringRelationLabel);
     return relationGraph.addEdge(pMemoryLocation1, pMemoryLocation2, newEdge);
+  }
+
+  /**
+   * Kill a given relation between two given variables (if possible).
+   * @param pMemoryLocation1 the first given variable, which must not be null
+   * @param pMemoryLocation2 the second given variable, which must not be null
+   * @param pStringRelationLabel the given label, which must not be null
+   * @return true if the graph is modified
+   */
+  private boolean killRelation(MemoryLocation pMemoryLocation1,
+                               MemoryLocation pMemoryLocation2,
+                               StringRelationLabel pStringRelationLabel) {
+    assertNotNull(pMemoryLocation1);
+    assertNotNull(pMemoryLocation2);
+    assertNotNull(pStringRelationLabel);
+
+    boolean modified = false;
+    if (relationGraph.containsNode(pMemoryLocation1) &&
+        relationGraph.containsNode(pMemoryLocation2)) {
+      for (RelationEdge<MemoryLocation, StringRelationLabel> edge :
+                relationGraph.edgesConnecting(pMemoryLocation1, pMemoryLocation2)) {
+        if (edge.getLabel() == pStringRelationLabel) {
+          modified |= relationGraph.removeEdge(edge);
+        }
+      }
+    }
+
+    return modified;
   }
 
   // Todo: set a relation between two string variables
@@ -179,14 +207,21 @@ public final class StringRelationAnalysisState
   }
 
   /**
-   * Make two memory locations equal.
+   * Make two memory locations equal or unequal.
    * @param pMemoryLocation1 the first given memory location
    * @param pMemoryLocation2 the second given memory location
+   * @param truthValue equal or unequal
    */
-  public void makeEqual(MemoryLocation pMemoryLocation1,
-                        MemoryLocation pMemoryLocation2) {
-    addRelation(pMemoryLocation1, pMemoryLocation2, StringRelationLabel.EQUAL);
-    addRelation(pMemoryLocation2, pMemoryLocation1, StringRelationLabel.EQUAL);
+  public void makeEquality(MemoryLocation pMemoryLocation1,
+                        MemoryLocation pMemoryLocation2,
+                        boolean truthValue) {
+    if (truthValue) {
+      addRelation(pMemoryLocation1, pMemoryLocation2, StringRelationLabel.EQUAL);
+      addRelation(pMemoryLocation2, pMemoryLocation1, StringRelationLabel.EQUAL);
+    } else {
+      killRelation(pMemoryLocation1, pMemoryLocation2, StringRelationLabel.EQUAL);
+      killRelation(pMemoryLocation2, pMemoryLocation1, StringRelationLabel.EQUAL);
+    }
   }
 
   /**

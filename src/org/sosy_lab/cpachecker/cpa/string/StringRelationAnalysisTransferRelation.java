@@ -33,6 +33,7 @@ import org.sosy_lab.cpachecker.cfa.ast.java.JLeftHandSide;
 import org.sosy_lab.cpachecker.cfa.ast.java.JMethodInvocationAssignmentStatement;
 import org.sosy_lab.cpachecker.cfa.ast.java.JReferencedMethodInvocationExpression;
 import org.sosy_lab.cpachecker.cfa.ast.java.JStringLiteralExpression;
+import org.sosy_lab.cpachecker.cfa.ast.java.JUnaryExpression;
 import org.sosy_lab.cpachecker.cfa.model.ADeclarationEdge;
 import org.sosy_lab.cpachecker.cfa.model.AReturnStatementEdge;
 import org.sosy_lab.cpachecker.cfa.model.AStatementEdge;
@@ -122,7 +123,7 @@ public class StringRelationAnalysisTransferRelation
       AExpression exp = ((AInitializerExpression) init).getExpression();
       MemoryLocation RHSVariable = StringVariableGenerator.getExpressionMemLocation(exp, functionName);
       if (RHSVariable != null) {
-        newState.makeEqual(LHSVariable, RHSVariable);
+        newState.makeEquality(LHSVariable, RHSVariable, true);
         newState.copyInvocation(RHSVariable, LHSVariable);
       }
     }
@@ -132,7 +133,8 @@ public class StringRelationAnalysisTransferRelation
 
   /**
    * Handle an assumption edge.
-   * We only consider the JBinaryExpression consisting of a function result and a boolean value.
+   * We need to consider the JBinaryExpression consisting of a function result and a boolean value,
+   * and the JUnaryExpression consisting of a function result.
    * @param cfaEdge the given assumption edge to handle
    * @param expression the expression on <code>cfaEdge</code>
    * @param truthValue the assumption result of <code>expression</code>
@@ -142,18 +144,39 @@ public class StringRelationAnalysisTransferRelation
   protected StringRelationAnalysisState handleAssumption(
       AssumeEdge cfaEdge, AExpression expression, boolean truthValue) {
 
-    if (!IsBinaryExpressionOfFunctionResultAndBoolean(expression)) {
-      return state;
+    // whether this assumption is in assertion or condition statement can affect the rigidness of constraint
+    //boolean isAssertion = TypeChecker.isAssertion(cfaEdge);
+
+    if (isBinaryExpressionOfFunctionResultAndBoolean(expression)) {
+      JBinaryExpression binaryExpression = (JBinaryExpression) expression;
+      return handleBinaryAssumption(binaryExpression, truthValue);
     }
 
-    JBinaryExpression binaryExpression = (JBinaryExpression) expression;
-    JExpression operand1 = binaryExpression.getOperand1();
-    JExpression operand2 = binaryExpression.getOperand2();
+    if (isUnaryExpressionOfFunctionReturnValue(expression)) {
+      JUnaryExpression unaryExpression = (JUnaryExpression) expression;
+      return handleUnaryAssumption(unaryExpression, truthValue);
+    }
+
+    return state;
+  }
+
+  /**
+   * Handle a binary assumption expression consisting of a function result and a boolean value.
+   * @param expression the expression on <code>cfaEdge</code>
+   * @param truthValue the truth value outside <code>expression</code>
+   * @return the new abstract state after this edge
+   */
+  private StringRelationAnalysisState handleBinaryAssumption(JBinaryExpression expression,
+                                                             boolean truthValue) {
+
+    JExpression operand1 = expression.getOperand1();
+    JExpression operand2 = expression.getOperand2();
 
     JReferencedMethodInvocationExpression invocation;
+    // the boolean value to be compared in the expression
     boolean boolValue;
-
-    if (AreFunctionReturnValueAndBooleanValue(operand1, operand2)) {
+    // consider the position of the return value and boolean value (e.g. which is on LHS)
+    if (areFunctionReturnValueAndBooleanValue(operand1, operand2)) {
       invocation = getFunctionInvocation(operand1);
       boolValue = ((JBooleanLiteralExpression) operand2).getBoolean();
     } else {
@@ -162,9 +185,30 @@ public class StringRelationAnalysisTransferRelation
     }
 
     if (TypeChecker.isStringEquals(invocation)) {
-      return handleStringEquals(invocation, !(boolValue^truthValue));
+      // e.g. in !(a == false), truthValue = "!" = false, and boolValue = false,
+      // and isEquality is true (since the operator is ==), then finalEquality is the XNOR of them = true
+      boolean isEquality = TypeChecker.isEqualOperator(expression.getOperator());
+      boolean finalEquality = XNOR(boolValue, XNOR(truthValue, isEquality));
+      return handleStringEquals(invocation, finalEquality);
     }
     // todo: startWith and endWith
+
+    return state;
+  }
+
+  private StringRelationAnalysisState handleUnaryAssumption(JUnaryExpression expression,
+                                                            boolean truthValue) {
+
+    JExpression operand = expression.getOperand();
+    JReferencedMethodInvocationExpression invocation = getFunctionInvocation(operand);
+
+    if (TypeChecker.isStringEquals(invocation)) {
+      // the boolean value in the expression
+      // e.g. in [!a], truthValue = true, and booleanValue = "!" = false
+      boolean boolValue = !TypeChecker.isNOTOperator(expression.getOperator());
+      boolean finalEquality = XNOR(boolValue, truthValue);
+      return handleStringEquals(invocation, finalEquality);
+    }
 
     return state;
   }
@@ -315,7 +359,7 @@ public class StringRelationAnalysisTransferRelation
       }
 
       if (RHSVariable != null) {
-        newState.makeEqual(LHSVariable, RHSVariable);
+        newState.makeEquality(LHSVariable, RHSVariable, true);
         newState.copyInvocation(RHSVariable, LHSVariable);
       }
     }
@@ -353,14 +397,11 @@ public class StringRelationAnalysisTransferRelation
    * If the assumption is true, then the comparison is between two variables,
    * then we add an EQUAL relation between those two variables.
    * @param invocation the invocation to method equals in assumption
-   * @param truthValue the boolean value of the assumption
+   * @param truthValue the boolean value of the equality assumption
    * @return the new abstract state after this assumption
    */
   private StringRelationAnalysisState handleStringEquals(JReferencedMethodInvocationExpression invocation,
                                                          boolean truthValue) {
-    if (!truthValue) {
-      return state;
-    }
 
     JExpression parameter = invocation.getParameterExpressions().get(0);
     if (!(parameter instanceof JIdExpression)) {
@@ -374,7 +415,7 @@ public class StringRelationAnalysisTransferRelation
     MemoryLocation stringVar2 = StringVariableGenerator.getExpressionMemLocation(string2, functionName);
 
     StringRelationAnalysisState newState = StringRelationAnalysisState.deepCopyOf(state);
-    newState.makeEqual(stringVar1, stringVar2);
+    newState.makeEquality(stringVar1, stringVar2, truthValue);
 
     return newState;
   }
@@ -429,7 +470,7 @@ public class StringRelationAnalysisTransferRelation
 
     // kill the original relation with LHSVariable
     curState.killVariableRelation(returnValue);
-    curState.makeEqual(returnValue, callerVariable);
+    curState.makeEquality(returnValue, callerVariable, true);
 
     return curState;
   }
@@ -518,7 +559,7 @@ public class StringRelationAnalysisTransferRelation
       JExpression param = params.get(0);
       if (param instanceof JIdExpression || param instanceof JStringLiteralExpression) {
         MemoryLocation paramVariable = StringVariableGenerator.getExpressionMemLocation(param, functionName);
-        curState.makeEqual(returnValue, paramVariable);
+        curState.makeEquality(returnValue, paramVariable, true);
       }
     }
 
@@ -529,7 +570,7 @@ public class StringRelationAnalysisTransferRelation
    * Check whether the given expression is a JBinaryExpression
    * consisting of a function result and a boolean value.
    */
-  private boolean IsBinaryExpressionOfFunctionResultAndBoolean(AExpression expression) {
+  private boolean isBinaryExpressionOfFunctionResultAndBoolean(AExpression expression) {
 
     if (!(expression instanceof JBinaryExpression)) {
       return false;
@@ -539,15 +580,31 @@ public class StringRelationAnalysisTransferRelation
     JExpression operand1 = binaryExpression.getOperand1();
     JExpression operand2 = binaryExpression.getOperand2();
 
-    return AreFunctionReturnValueAndBooleanValue(operand1, operand2) ||
-          AreFunctionReturnValueAndBooleanValue(operand2, operand1);
+    return areFunctionReturnValueAndBooleanValue(operand1, operand2) ||
+          areFunctionReturnValueAndBooleanValue(operand2, operand1);
+  }
+
+  /**
+   * Check whether the given expression is a JUnaryExpression
+   * consisting of a function result.
+   */
+  private boolean isUnaryExpressionOfFunctionReturnValue(AExpression expression) {
+
+    if (!(expression instanceof JUnaryExpression)) {
+      return false;
+    }
+
+    JUnaryExpression unaryExpression = (JUnaryExpression) expression;
+    JExpression operand = unaryExpression.getOperand();
+
+    return getFunctionInvocation(operand) != null;
   }
 
   /**
    * Check whether the first operand is a function return value
    * and the second operand is a boolean value.
    */
-  private boolean AreFunctionReturnValueAndBooleanValue(JExpression operand1, JExpression operand2) {
+  private boolean areFunctionReturnValueAndBooleanValue(JExpression operand1, JExpression operand2) {
     return getFunctionInvocation(operand1) != null &&
           operand2 instanceof JBooleanLiteralExpression;
   }
@@ -564,5 +621,9 @@ public class StringRelationAnalysisTransferRelation
     JReferencedMethodInvocationExpression invocation = state.getInvocation(variable);
 
     return invocation;
+  }
+
+  private static boolean XNOR(boolean a, boolean b) {
+    return !(a^b);
   }
 }
