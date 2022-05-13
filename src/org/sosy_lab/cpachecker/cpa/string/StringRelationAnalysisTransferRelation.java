@@ -11,7 +11,11 @@ SPDX-License-Identifier: Apache-2.0
 
 package org.sosy_lab.cpachecker.cpa.string;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.logging.Level;
+import org.sosy_lab.common.log.LogManager;
 import org.sosy_lab.cpachecker.cfa.ast.AAssignment;
 import org.sosy_lab.cpachecker.cfa.ast.ADeclaration;
 import org.sosy_lab.cpachecker.cfa.ast.AExpression;
@@ -39,17 +43,73 @@ import org.sosy_lab.cpachecker.cfa.model.AReturnStatementEdge;
 import org.sosy_lab.cpachecker.cfa.model.AStatementEdge;
 import org.sosy_lab.cpachecker.cfa.model.AssumeEdge;
 import org.sosy_lab.cpachecker.cfa.model.BlankEdge;
+import org.sosy_lab.cpachecker.cfa.model.CFAEdge;
 import org.sosy_lab.cpachecker.cfa.model.FunctionExitNode;
 import org.sosy_lab.cpachecker.core.defaults.ForwardingTransferRelation;
 import org.sosy_lab.cpachecker.core.defaults.precision.VariableTrackingPrecision;
+import org.sosy_lab.cpachecker.core.interfaces.AbstractState;
+import org.sosy_lab.cpachecker.core.interfaces.Precision;
+import org.sosy_lab.cpachecker.exceptions.CPATransferException;
 import org.sosy_lab.cpachecker.exceptions.UnrecognizedCodeException;
 import org.sosy_lab.cpachecker.util.states.MemoryLocation;
 
 public class StringRelationAnalysisTransferRelation
     extends ForwardingTransferRelation<StringRelationAnalysisState, StringRelationAnalysisState, VariableTrackingPrecision> {
 
-  public StringRelationAnalysisTransferRelation() {
+  private final LogManager logger;
+
+  public StringRelationAnalysisTransferRelation(LogManager pLogger) {
     super();
+    logger = pLogger;
+  }
+
+  /**
+   * The transfer function that does nothing, where the successor is still current state.
+   * @param abstractState current abstract state
+   * @param abstractPrecision precision for abstract state
+   * @param cfaEdge the edge for which the successors should be computed
+   * @return a collection of successor (which is still <code>abstractState</code>)
+   */
+  @Override
+  public Collection<StringRelationAnalysisState> getAbstractSuccessorsForEdge(
+      AbstractState abstractState, Precision abstractPrecision, CFAEdge cfaEdge) {
+
+    setInfo(abstractState, abstractPrecision, cfaEdge);
+
+    StringRelationAnalysisState successor = state;
+    final Collection<StringRelationAnalysisState> result = postProcessing(successor, cfaEdge);
+    resetInfo();
+    return result;
+  }
+
+  /**
+   * We get the successor of StringRelationAnalysis in Strengthening stage.
+   */
+  @Override
+  public Collection<? extends AbstractState> strengthen(
+      AbstractState pElement,
+      Iterable<AbstractState> pElements,
+      CFAEdge pCfaEdge,
+      Precision pPrecision)
+      throws CPATransferException {
+    assert pElement instanceof StringRelationAnalysisState;
+
+    // get the successor of current abstract state after the cfaEdge
+    try {
+      Collection<StringRelationAnalysisState> successors =
+          getAbstractSuccessorsForEdgeInStrengthen(pElement, null, pPrecision, pCfaEdge);
+      if (successors.size() == 1) {
+        pElement = successors.iterator().next();
+      }
+    } catch (Exception e) {
+      logger.log(Level.SEVERE, "Exception in getting successors during strengthening stage", e);
+    }
+
+    super.resetInfo();
+
+    Collection<AbstractState> postProcessedResult = new ArrayList<>();
+    postProcessedResult.add(pElement);
+    return postProcessedResult;
   }
 
   /**
@@ -409,13 +469,8 @@ public class StringRelationAnalysisTransferRelation
   private StringRelationAnalysisState handleStringEquals(JReferencedMethodInvocationExpression invocation,
                                                          boolean truthValue) {
 
-    JExpression parameter = invocation.getParameterExpressions().get(0);
-    if (!(parameter instanceof JIdExpression)) {
-      return state;
-    }
-
     JIdExpression string1 = invocation.getReferencedVariable();
-    JIdExpression string2 = (JIdExpression) parameter;
+    JExpression string2 = invocation.getParameterExpressions().get(0);
 
     MemoryLocation stringVar1 = StringVariableGenerator.getExpressionMemLocation(string1, functionName);
     MemoryLocation stringVar2 = StringVariableGenerator.getExpressionMemLocation(string2, functionName);

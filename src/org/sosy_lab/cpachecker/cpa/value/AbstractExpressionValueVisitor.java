@@ -90,8 +90,10 @@ import org.sosy_lab.cpachecker.cfa.types.java.JBasicType;
 import org.sosy_lab.cpachecker.cfa.types.java.JSimpleType;
 import org.sosy_lab.cpachecker.cfa.types.java.JStringType;
 import org.sosy_lab.cpachecker.cfa.types.java.JType;
-import org.sosy_lab.cpachecker.cpa.string.GlobalVars;
+import org.sosy_lab.cpachecker.core.interfaces.AbstractState;
 import org.sosy_lab.cpachecker.cpa.string.StringRelationAnalysisState;
+import org.sosy_lab.cpachecker.cpa.string.StringRelationAnalysisState.RelationProperty;
+import org.sosy_lab.cpachecker.cpa.string.StringVariableGenerator;
 import org.sosy_lab.cpachecker.cpa.string.TrivialOp;
 import org.sosy_lab.cpachecker.cpa.string.TypeChecker;
 import org.sosy_lab.cpachecker.cpa.value.symbolic.type.SymbolicExpression;
@@ -116,6 +118,7 @@ import org.sosy_lab.cpachecker.util.BuiltinFloatFunctions;
 import org.sosy_lab.cpachecker.util.BuiltinFunctions;
 import org.sosy_lab.cpachecker.util.BuiltinOverflowFunctions;
 import org.sosy_lab.cpachecker.util.automaton4string.Automaton;
+import org.sosy_lab.cpachecker.util.states.MemoryLocation;
 
 /**
  * This Visitor implements an evaluation strategy
@@ -147,10 +150,10 @@ public abstract class AbstractExpressionValueVisitor
   /** Length of type DOUBLE in Java (in bit). */
   private static final int SIZE_OF_JAVA_DOUBLE = 64;
 
-  // for getting the state of ValueAnalysis and StringRelationAnalysis
-  private final ValueAnalysisState valueState;
+  // for getting the states for strengthening
+  private AbstractState mainState = null;
 
-  private final StringRelationAnalysisState stringRelationState;
+  private AbstractState auxiliaryState = null;
   private final String functionName;
   private final MachineModel machineModel;
 
@@ -170,10 +173,19 @@ public abstract class AbstractExpressionValueVisitor
   protected AbstractExpressionValueVisitor(
       String pFunctionName, MachineModel pMachineModel, LogManagerWithoutDuplicates pLogger) {
 
-    //this.state = pState;
     functionName = pFunctionName;
     machineModel = pMachineModel;
     logger = pLogger;
+  }
+
+  protected AbstractExpressionValueVisitor(AbstractState pMainState, AbstractState pAuxiliaryState,
+                                            String pFunctionName, MachineModel pMachineModel,
+                                            LogManagerWithoutDuplicates pLogger) {
+    functionName = pFunctionName;
+    machineModel = pMachineModel;
+    logger = pLogger;
+    mainState = pMainState;
+    auxiliaryState = pAuxiliaryState;
   }
 
   public boolean hasMissingFieldAccessInformation() {
@@ -2020,8 +2032,9 @@ public abstract class AbstractExpressionValueVisitor
    */
   private Value calculateStringEqual(JReferencedMethodInvocationExpression invocation,
                                      boolean truthValue) {
+    assert (mainState instanceof ValueAnalysisState);
 
-    if (GlobalVars.isAssertion) {
+    if (((ValueAnalysisState) mainState).getInAssertion()) {
       return calculateStringEqualInAssertion(invocation, truthValue);
     } else {
       return calculateStringEqualInCondition(invocation, truthValue);
@@ -2043,7 +2056,96 @@ public abstract class AbstractExpressionValueVisitor
    */
   private Value calculateStringEqualInCondition(JReferencedMethodInvocationExpression invocation,
                                                 boolean truthValue) {
-    return null;
+
+    JIdExpression string1 = invocation.getReferencedVariable();
+    JExpression string2 = invocation.getParameterExpressions().get(0);
+
+    MemoryLocation stringVar1 = StringVariableGenerator.getExpressionMemLocation(string1, functionName);
+    MemoryLocation stringVar2 = StringVariableGenerator.getExpressionMemLocation(string2, functionName);
+
+    boolean mayEqual = checkStringMayEqual(stringVar1, stringVar2);
+    return BooleanValue.valueOf(TrivialOp.XNOR(mayEqual, truthValue));
+  }
+
+  /**
+   * Check whether the value of two given string variables may be equal.
+   * Two strings may be equal iff (they have equality relation, or the intersection of their value domain is not empty).
+   * We first check whether they have equality relation, then check the intersection of their value domain.
+   * @param stringVar1 the first given string variable
+   * @param stringVar2 the second given string variable
+   * @return true if the value may be equal
+   */
+  private boolean checkStringMayEqual(MemoryLocation stringVar1, MemoryLocation stringVar2) {
+
+    // check equality relation
+    assert (auxiliaryState instanceof StringRelationAnalysisState);
+    StringRelationAnalysisState stringRelationAnalysisState = (StringRelationAnalysisState) auxiliaryState;
+    boolean hasEqualRelation = stringRelationAnalysisState.checkProperty(stringVar1, stringVar2, RelationProperty.EQUAL);
+    if (hasEqualRelation) {
+      return true;
+    }
+
+    // check whether there the intersection of domain is empty
+    ValueAnalysisState valueAnalysisState = ((ValueAnalysisState) mainState);
+    Value value1 = valueAnalysisState.getValueFor(stringVar1);
+    Value value2 = valueAnalysisState.getValueFor(stringVar2);
+
+    if (!(value1 instanceof StringValue) || !(value2 instanceof StringValue)) {
+      return false;
+    }
+
+    StringValue stringValue1 = (StringValue) value1;
+    StringValue stringValue2 = (StringValue) value2;
+
+    Automaton stringDomain1 = stringValue1.getValueDomain();
+    Automaton stringDomain2 = stringValue2.getValueDomain();
+
+    if (stringDomain1 == null || stringDomain2 == null) {
+      return false;
+    }
+
+    Automaton intersectionDomain = stringDomain1.intersection(stringDomain2);
+    return !intersectionDomain.isEmpty();
+  }
+
+  /**
+   * Check whether the value of two given string variables must be equal.
+   * Two strings must be equal iff (they have equality relation, or they are the same singleton).
+   * We first check whether they have equality relation, then check the strict equality of their value domain
+   * @param stringVar1 the first given string variable
+   * @param stringVar2 the second given string variable
+   * @return true if the value must be equal
+   */
+  private boolean checkStringMustEqual(MemoryLocation stringVar1, MemoryLocation stringVar2) {
+
+    // check equality relation
+    assert (auxiliaryState instanceof StringRelationAnalysisState);
+    StringRelationAnalysisState stringRelationAnalysisState = (StringRelationAnalysisState) auxiliaryState;
+    boolean hasEqualRelation = stringRelationAnalysisState.checkProperty(stringVar1, stringVar2, RelationProperty.EQUAL);
+    if (hasEqualRelation) {
+      return true;
+    }
+
+    // check whether the value domains are strictly equal
+    ValueAnalysisState valueAnalysisState = ((ValueAnalysisState) mainState);
+    Value value1 = valueAnalysisState.getValueFor(stringVar1);
+    Value value2 = valueAnalysisState.getValueFor(stringVar2);
+
+    if (!(value1 instanceof StringValue) || !(value2 instanceof StringValue)) {
+      return false;
+    }
+
+    StringValue stringValue1 = (StringValue) value1;
+    StringValue stringValue2 = (StringValue) value2;
+
+    Automaton stringDomain1 = stringValue1.getValueDomain();
+    Automaton stringDomain2 = stringValue2.getValueDomain();
+
+    if (stringDomain1 == null || stringDomain2 == null) {
+      return false;
+    }
+
+    return stringDomain1.strictlyEquivalent(stringDomain2);
   }
 
   @Override

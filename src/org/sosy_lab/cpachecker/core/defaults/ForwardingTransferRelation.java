@@ -112,6 +112,9 @@ public abstract class ForwardingTransferRelation<S, T extends AbstractState, P e
   /** the given state, casted to correct type, for local access */
   protected @Nullable T state;
 
+  /** the auxiliary state for strengthening */
+  protected @Nullable AbstractState auxiliaryState = null;
+
   /** the given precision, casted to correct type, for local access */
   protected @Nullable P precision;
 
@@ -130,6 +133,7 @@ public abstract class ForwardingTransferRelation<S, T extends AbstractState, P e
     return checkNotNull(functionName);
   }
 
+  protected void setAuxiliaryState(AbstractState pAuxiliaryState) {}
   /**
    * This is the main method that delegates the control-flow to the
    * corresponding edge-type-specific methods.
@@ -140,6 +144,93 @@ public abstract class ForwardingTransferRelation<S, T extends AbstractState, P e
       throws CPATransferException, InterruptedException {
 
     setInfo(abstractState, abstractPrecision, cfaEdge);
+
+    final Collection<T> preCheck = preCheck(state, precision);
+    if (preCheck != null) { return preCheck; }
+
+    final S successor;
+
+    switch (cfaEdge.getEdgeType()) {
+
+      case AssumeEdge:
+        final AssumeEdge assumption = (AssumeEdge) cfaEdge;
+        successor =
+            handleAssumption(
+                assumption, assumption.getExpression(), assumption.getTruthAssumption());
+        break;
+
+      case FunctionCallEdge:
+        final FunctionCallEdge fnkCall = (FunctionCallEdge) cfaEdge;
+        final FunctionEntryNode succ = fnkCall.getSuccessor();
+        final String calledFunctionName = succ.getFunctionName();
+        successor =
+            handleFunctionCallEdge(
+                fnkCall, fnkCall.getArguments(), succ.getFunctionParameters(), calledFunctionName);
+        break;
+
+      case FunctionReturnEdge:
+        final String callerFunctionName = cfaEdge.getSuccessor().getFunctionName();
+        final FunctionReturnEdge fnkReturnEdge = (FunctionReturnEdge) cfaEdge;
+        final FunctionSummaryEdge summaryEdge = fnkReturnEdge.getSummaryEdge();
+        successor =
+            handleFunctionReturnEdge(
+                fnkReturnEdge, summaryEdge, summaryEdge.getExpression(), callerFunctionName);
+        break;
+
+      case DeclarationEdge:
+        final ADeclarationEdge declarationEdge = (ADeclarationEdge) cfaEdge;
+        successor = handleDeclarationEdge(declarationEdge, declarationEdge.getDeclaration());
+        break;
+
+      case StatementEdge:
+        final AStatementEdge statementEdge = (AStatementEdge) cfaEdge;
+        successor = handleStatementEdge(statementEdge, statementEdge.getStatement());
+        break;
+
+      case ReturnStatementEdge:
+        // this statement is a function return, e.g. return (a);
+        // note that this is different from return edge,
+        // this is a statement edge, which leads the function to the
+        // last node of its CFA, where return edge is from that last node
+        // to the return site of the caller function
+        final AReturnStatementEdge returnEdge = (AReturnStatementEdge) cfaEdge;
+        successor = handleReturnStatementEdge(returnEdge);
+        break;
+
+      case BlankEdge:
+        successor = handleBlankEdge((BlankEdge) cfaEdge);
+        break;
+
+      case CallToReturnEdge:
+        successor = handleFunctionSummaryEdge((FunctionSummaryEdge) cfaEdge);
+        break;
+
+      default:
+        throw new UnrecognizedCFAEdgeException(cfaEdge);
+    }
+
+    final Collection<T> result = postProcessing(successor, cfaEdge);
+
+    resetInfo();
+
+    return result;
+  }
+
+  /**
+   * get the successors after the given edge in strengthening stage.
+   * @param abstractState current abstract state
+   * @param otherState other auxiliary abstract state
+   * @param abstractPrecision precision for abstract state
+   * @param cfaEdge the edge for which the successors should be computed
+   * @return a collection of successors of <code>abstractState</code> after <code>cfaEdge</code>
+   */
+  public Collection<T> getAbstractSuccessorsForEdgeInStrengthen(
+      final AbstractState abstractState, final AbstractState otherState,
+      final Precision abstractPrecision, final CFAEdge cfaEdge)
+      throws CPATransferException, InterruptedException {
+
+    setInfo(abstractState, abstractPrecision, cfaEdge);
+    setAuxiliaryState(otherState);
 
     final Collection<T> preCheck = preCheck(state, precision);
     if (preCheck != null) { return preCheck; }

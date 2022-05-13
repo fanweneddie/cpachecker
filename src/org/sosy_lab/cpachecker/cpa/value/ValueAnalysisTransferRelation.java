@@ -113,7 +113,7 @@ import org.sosy_lab.cpachecker.cpa.pointer2.util.ExplicitLocationSet;
 import org.sosy_lab.cpachecker.cpa.pointer2.util.LocationSet;
 import org.sosy_lab.cpachecker.cpa.rtt.NameProvider;
 import org.sosy_lab.cpachecker.cpa.rtt.RTTState;
-import org.sosy_lab.cpachecker.cpa.string.GlobalVars;
+import org.sosy_lab.cpachecker.cpa.string.StringRelationAnalysisState;
 import org.sosy_lab.cpachecker.cpa.string.TypeChecker;
 import org.sosy_lab.cpachecker.cpa.threading.ThreadingState;
 import org.sosy_lab.cpachecker.cpa.value.ValueAnalysisState.ValueAndType;
@@ -334,6 +334,30 @@ public class ValueAnalysisTransferRelation
     if (stats != null) {
       stats.incrementIterations();
     }
+  }
+
+  /**
+   * The transfer function that does nothing, where the successor is still current state.
+   * @param abstractState current abstract state
+   * @param abstractPrecision precision for abstract state
+   * @param cfaEdge the edge for which the successors should be computed
+   * @return a collection of successor (which is still <code>abstractState</code>)
+   */
+  @Override
+  public Collection<ValueAnalysisState> getAbstractSuccessorsForEdge(
+      AbstractState abstractState, Precision abstractPrecision, CFAEdge cfaEdge) {
+
+    setInfo(abstractState, abstractPrecision, cfaEdge);
+
+    final Collection<ValueAnalysisState> preCheck = preCheck(state, precision);
+    if (preCheck != null) {
+      return preCheck;
+    }
+
+    ValueAnalysisState successor = state;
+    final Collection<ValueAnalysisState> result = postProcessing(successor, cfaEdge);
+    resetInfo();
+    return result;
   }
 
   @Override
@@ -600,8 +624,8 @@ public class ValueAnalysisTransferRelation
   protected ValueAnalysisState handleAssumption(
       AssumeEdge cfaEdge, AExpression expression, boolean truthValue)
       throws UnrecognizedCodeException {
-    // record whether the assumption is in an assertion statement to the global variables
-    GlobalVars.isAssertion = TypeChecker.isAssertion(cfaEdge);
+    // record whether the assumption is in an assertion statement
+    state.setInAssertion(TypeChecker.isAssertion(cfaEdge));
     return handleAssumption(expression, truthValue);
   }
 
@@ -1325,6 +1349,25 @@ public class ValueAnalysisTransferRelation
       throws CPATransferException {
     assert pElement instanceof ValueAnalysisState;
 
+    AbstractState stringAnalysisState = null;
+    for (AbstractState element : pElements) {
+      if (element instanceof StringRelationAnalysisState) {
+        stringAnalysisState = element;
+        break;
+      }
+    }
+
+    // get the successor of current abstract state after the cfaEdge
+    try {
+      Collection<ValueAnalysisState> successors =
+          getAbstractSuccessorsForEdgeInStrengthen(pElement, stringAnalysisState, pPrecision, pCfaEdge);
+      if (successors.size() == 1) {
+        pElement = successors.iterator().next();
+      }
+    } catch (Exception e) {
+      logger.log(Level.SEVERE, "Exception in getting successors during strengthening stage", e);
+    }
+
     List<ValueAnalysisState> toStrengthen = new ArrayList<>();
     List<ValueAnalysisState> result = new ArrayList<>();
     toStrengthen.add((ValueAnalysisState) pElement);
@@ -1770,7 +1813,7 @@ public class ValueAnalysisTransferRelation
           logger,
           valuesFromFile);
     } else if (options.isIgnoreFunctionValue()) {
-      return new ExpressionValueVisitor(pState, pFunctionName, machineModel, logger);
+      return new ExpressionValueVisitor(pState, auxiliaryState, pFunctionName, machineModel, logger);
     } else {
       return new FunctionPointerExpressionValueVisitor(pState, pFunctionName, machineModel, logger);
     }

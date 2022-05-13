@@ -897,6 +897,20 @@ public class Automaton implements Serializable, Cloneable {
 	public boolean subsetOf(Automaton a) {
 		return BasicOperations.subsetOf(this, a);
 	}
+
+	/**
+	 * See {@link BasicOperations#equivalent(Automaton, Automaton)}.
+	 */
+	public boolean equivalent(Automaton a) {
+		return BasicOperations.equivalent(this, a);
+	}
+
+	/**
+	 * See {@link BasicOperations#strictlyEquivalent(Automaton, Automaton)}.
+	 */
+	public boolean strictlyEquivalent(Automaton a) {
+		return BasicOperations.strictlyEquivalent(this, a);
+	}
 	
 	/**
 	 * See {@link BasicOperations#union(Automaton, Automaton)}.

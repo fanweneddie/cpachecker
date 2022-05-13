@@ -15,8 +15,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static org.junit.Assert.assertNotNull;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import org.sosy_lab.cpachecker.cfa.ast.java.JReferencedMethodInvocationExpression;
 import org.sosy_lab.cpachecker.exceptions.CPAException;
 import org.sosy_lab.cpachecker.exceptions.InvalidQueryException;
@@ -171,11 +173,6 @@ public final class StringRelationAnalysisState
     }
 
     return modified;
-  }
-
-  // Todo: set a relation between two string variables
-  public void setRelation() {
-
   }
 
   /**
@@ -385,10 +382,43 @@ public final class StringRelationAnalysisState
   }
 
   /**
-   * Propagate the value of other constrained variables after an assignment.
-   * Here, the constraint is shown in {@link #relationGraph}.
+   * Check whether the given property between two variables stands.
+   * If any one of those two relation is not in {@link #relationGraph}, then return false.
+   * @param pMemoryLocation1 the first given variable, which must not be null
+   * @param pMemoryLocation2 the second given variable, which must not be null
+   * @param property the given property, which must not be null
+   * @return true if an equality relation is reasoned in this method
    */
-  private void propagateValueOnConstraint() {
+  public boolean checkProperty(MemoryLocation pMemoryLocation1, MemoryLocation pMemoryLocation2, RelationProperty property) {
+    assertNotNull(pMemoryLocation1);
+    assertNotNull(pMemoryLocation2);
+    assertNotNull(property);
+
+    if (!relationGraph.containsNode(pMemoryLocation1) || !relationGraph.containsNode(pMemoryLocation2)) {
+      return false;
+    }
+
+    Set<MemoryLocation> searchedVars = new HashSet<>();
+
+    switch (property) {
+      case EQUAL:
+        return checkEqualProperty(pMemoryLocation1, pMemoryLocation2, searchedVars);
+      case PREFIX:
+      case SUFFIX:
+      case CONTAIN:
+      default:
+        return false;
+    }
+
+  }
+
+  /**
+   * Check whether two given variables are equal.
+   */
+  private boolean checkEqualProperty(MemoryLocation pMemoryLocation1,
+                                     MemoryLocation pMemoryLocation2,
+                                     Set<MemoryLocation> searchedVars) {
+    return false;
   }
 
   @Override
@@ -507,5 +537,15 @@ public final class StringRelationAnalysisState
     CONCAT_WITH,
     /** y = length(x), so y is the length of x */
     LENGTH_OF
+  }
+
+  /**
+   * The property of relation between two strings (in order to be checked).
+   */
+  public enum RelationProperty {
+    EQUAL,
+    PREFIX,
+    SUFFIX,
+    CONTAIN
   }
 }

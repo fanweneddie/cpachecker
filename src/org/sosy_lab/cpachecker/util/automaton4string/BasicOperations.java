@@ -389,7 +389,21 @@ final public class BasicOperations {
 		}
 		return true;
 	}
-	
+
+	/**
+	 * Check whether two automaton are equivalent (i.e., they describe the same language).
+	 */
+	public static boolean equivalent(Automaton a1, Automaton a2) {
+		return subsetOf(a1, a2) && subsetOf(a2, a1);
+	}
+
+	/**
+	 * Check whether two automaton are both singleton and equivalent.
+	 */
+	public static boolean strictlyEquivalent(Automaton a1, Automaton a2) {
+		return a1.isSingleton() && a2.isSingleton() && equivalent(a1, a2);
+	}
+
 	/**
 	 * Returns an automaton that accepts the union of the languages of the given automata.
 	 * <p>

@@ -53,6 +53,7 @@ import org.sosy_lab.cpachecker.cfa.types.c.CType;
 import org.sosy_lab.cpachecker.cfa.types.c.CTypes;
 import org.sosy_lab.cpachecker.core.defaults.LatticeAbstractState;
 import org.sosy_lab.cpachecker.core.interfaces.AbstractQueryableState;
+import org.sosy_lab.cpachecker.core.interfaces.AbstractState;
 import org.sosy_lab.cpachecker.core.interfaces.ExpressionTreeReportingState;
 import org.sosy_lab.cpachecker.core.interfaces.FormulaReportingState;
 import org.sosy_lab.cpachecker.core.interfaces.Graphable;
@@ -110,6 +111,12 @@ public final class ValueAnalysisState
 
   private final @Nullable MachineModel machineModel;
 
+  /**
+   * If the state is after an assumption statement,
+   * whether the current assumption is in an assertion statement
+   */
+  private boolean inAssertion = false;
+
   public ValueAnalysisState(MachineModel pMachineModel) {
     this(
         checkNotNull(pMachineModel),
@@ -139,6 +146,14 @@ public final class ValueAnalysisState
 
   public static ValueAnalysisState copyOf(ValueAnalysisState state) {
     return new ValueAnalysisState(state);
+  }
+
+  public void setInAssertion(boolean pInAssertion) {
+    inAssertion = pInAssertion;
+  }
+
+  public boolean getInAssertion() {
+    return inAssertion;
   }
 
   /**

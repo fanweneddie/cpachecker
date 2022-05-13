@@ -34,6 +34,7 @@ import org.sosy_lab.cpachecker.cfa.types.c.CProblemType;
 import org.sosy_lab.cpachecker.cfa.types.c.CSimpleType;
 import org.sosy_lab.cpachecker.cfa.types.c.CType;
 import org.sosy_lab.cpachecker.core.defaults.ForwardingTransferRelation;
+import org.sosy_lab.cpachecker.core.interfaces.AbstractState;
 import org.sosy_lab.cpachecker.cpa.value.ValueAnalysisState.ValueAndType;
 import org.sosy_lab.cpachecker.cpa.value.type.NumericValue;
 import org.sosy_lab.cpachecker.cpa.value.type.Value;
@@ -63,6 +64,13 @@ public class ExpressionValueVisitor extends AbstractExpressionValueVisitor {
   public ExpressionValueVisitor(ValueAnalysisState pState, String pFunctionName,
       MachineModel pMachineModel, LogManagerWithoutDuplicates pLogger) {
     super(pFunctionName, pMachineModel, pLogger);
+    readableState = pState;
+  }
+
+  public ExpressionValueVisitor(ValueAnalysisState pState, AbstractState pAuxiliaryState,
+                                String pFunctionName, MachineModel pMachineModel,
+                                LogManagerWithoutDuplicates pLogger) {
+    super(pState, pAuxiliaryState, pFunctionName, pMachineModel, pLogger);
     readableState = pState;
   }
 

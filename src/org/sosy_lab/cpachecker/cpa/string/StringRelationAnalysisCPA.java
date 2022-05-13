@@ -72,7 +72,7 @@ public class StringRelationAnalysisCPA extends AbstractCPA {
 
     @Override
     public StringRelationAnalysisTransferRelation getTransferRelation() {
-        return new StringRelationAnalysisTransferRelation();
+        return new StringRelationAnalysisTransferRelation(logger);
     }
 
     @Override
