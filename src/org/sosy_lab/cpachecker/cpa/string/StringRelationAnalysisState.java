@@ -340,7 +340,7 @@ public final class StringRelationAnalysisState
 
     switch (property) {
       case EQUAL:
-        return checkEqualProperty(pMemoryLocation1, pMemoryLocation2, searchedVars);
+        return checkEqualityProperty(pMemoryLocation1, pMemoryLocation2, searchedVars, true);
       case PREFIX:
       case SUFFIX:
       case CONTAIN:
@@ -353,104 +353,43 @@ public final class StringRelationAnalysisState
   /**
    * Check whether two given variables are equal.
    * We convert the constraint-reasoning problem to graph-searching problem.
+   * @param pMemoryLocation1 the first variable
+   * @param pMemoryLocation2 the second variable
+   * @param searchedVars stores the searched variables as a close list
+   * @param isEqualRelation whether to check EQUAL (true) or REVERSE_EQUAL (false)
    */
-  private boolean checkEqualProperty(MemoryLocation pMemoryLocation1,
-                                     MemoryLocation pMemoryLocation2,
-                                     Set<MemoryLocation> searchedVars) {
-    // we will never search pMemoryLocation1 again
+  private boolean checkEqualityProperty(MemoryLocation pMemoryLocation1,
+                                        MemoryLocation pMemoryLocation2,
+                                        Set<MemoryLocation> searchedVars,
+                                        boolean isEqualRelation) {
+    // the relation of equality (i.e. EQUAL or REVERSE_EQUAL)
+    StringRelationLabel relation = isEqualRelation?
+                                   StringRelationLabel.EQUAL : StringRelationLabel.REVERSE_EQUAL;
+    // check repetition
+    if (searchedVars.contains(pMemoryLocation1)) {
+      return false;
+    }
     searchedVars.add(pMemoryLocation1);
 
     // trivial boundary case
-    if (pMemoryLocation1.equals(pMemoryLocation2)) {
+    if (relation == StringRelationLabel.EQUAL && pMemoryLocation1.equals(pMemoryLocation2)) {
       return true;
     }
 
     // 1. judge equality directly
-    if (relationGraph.hasEdgesConnectingWithLabel(pMemoryLocation1, pMemoryLocation2, StringRelationLabel.EQUAL)) {
+    if (relationGraph.hasEdgesConnectingWithLabel(pMemoryLocation1, pMemoryLocation2, relation)) {
       return true;
     }
 
-    // 2. propagate through EQUAL edges
-    // equalEdgesTo1 means the equal edge to pMemoryLocation1 (so and so forth)
-    Set<RelationEdge<MemoryLocation, StringRelationLabel>> equalEdgesTo1
-        = relationGraph.outEdgesWithLabel(pMemoryLocation1, StringRelationLabel.EQUAL);
-
-    Set<RelationEdge<MemoryLocation, StringRelationLabel>> equalEdgesTo2
-        = relationGraph.outEdgesWithLabel(pMemoryLocation2, StringRelationLabel.EQUAL);
-
-    for (RelationEdge<MemoryLocation, StringRelationLabel> equalEdge : equalEdgesTo1) {
-      MemoryLocation equalMemLoc = equalEdge.getEndNode();
-      if (!searchedVars.contains(equalMemLoc)) {
-        if (checkEqualProperty(equalMemLoc, pMemoryLocation2, searchedVars)) {
-          return true;
-        }
-      }
+    // 2. propagate through EQUAL edges or REVERSE_EQUAL edge
+    if (propagateThroughEqualOrREVERSE_EQUAL(pMemoryLocation1, pMemoryLocation2,
+                                                        searchedVars, isEqualRelation)) {
+      return true;
     }
 
-    // 3. propagate through REVERSE_EQUAL edges
-    Set<RelationEdge<MemoryLocation, StringRelationLabel>> reverseEqualEdges
-        = relationGraph.outEdgesWithLabel(pMemoryLocation1, StringRelationLabel.REVERSE_EQUAL);
-
-    for (RelationEdge<MemoryLocation, StringRelationLabel> reverseEqualEdge : reverseEqualEdges) {
-      MemoryLocation equalMemLoc = reverseEqualEdge.getEndNode();
-      if (!searchedVars.contains(equalMemLoc)) {
-        if (checkReverseEqualProperty(equalMemLoc, pMemoryLocation2, searchedVars)) {
-          return true;
-        }
-      }
-    }
-
-    // 4. propagate through CONCAT or REVERSE_CONCAT edges
-    // prefixEdges1 is the edges from pMemoryLocation1's prefix (so and so forth)
-    Set<RelationEdge<MemoryLocation, StringRelationLabel>> prefixEdges1
-        = relationGraph.inEdgesWithLabel(pMemoryLocation1, StringRelationLabel.CONCAT_AS_PREFIX);
-    prefixEdges1.addAll(relationGraph.inEdgesWithLabel(pMemoryLocation1, StringRelationLabel.REVERSE_CONCAT_AS_PREFIX));
-
-    Set<RelationEdge<MemoryLocation, StringRelationLabel>> suffixEdges1
-        = relationGraph.inEdgesWithLabel(pMemoryLocation1, StringRelationLabel.CONCAT_AS_SUFFIX);
-    suffixEdges1.addAll(relationGraph.inEdgesWithLabel(pMemoryLocation1, StringRelationLabel.REVERSE_CONCAT_AS_SUFFIX));
-
-    Set<RelationEdge<MemoryLocation, StringRelationLabel>> prefixEdges2
-        = relationGraph.inEdgesWithLabel(pMemoryLocation2, StringRelationLabel.CONCAT_AS_PREFIX);
-    prefixEdges2.addAll(relationGraph.inEdgesWithLabel(pMemoryLocation2, StringRelationLabel.REVERSE_CONCAT_AS_PREFIX));
-
-    Set<RelationEdge<MemoryLocation, StringRelationLabel>> suffixEdges2
-        = relationGraph.inEdgesWithLabel(pMemoryLocation2, StringRelationLabel.CONCAT_AS_SUFFIX);
-    suffixEdges2.addAll(relationGraph.inEdgesWithLabel(pMemoryLocation2, StringRelationLabel.REVERSE_CONCAT_AS_SUFFIX));
-
-    // we don't consider cases with multiple prefix and suffix
-    if (prefixEdges1.size() == 1 && suffixEdges1.size() == 1 &&
-        prefixEdges2.size() == 1 && suffixEdges2.size() > 1) {
-      MemoryLocation prefixVar1 = prefixEdges1.iterator().next().getStartNode();
-      MemoryLocation suffixVar1 = suffixEdges1.iterator().next().getStartNode();
-      MemoryLocation prefixVar2 = prefixEdges2.iterator().next().getStartNode();
-      MemoryLocation suffixVar2 = suffixEdges2.iterator().next().getStartNode();
-
-      StringRelationLabel prefixRelation1 = prefixEdges1.iterator().next().getLabel();
-      StringRelationLabel suffixRelation1 = suffixEdges1.iterator().next().getLabel();
-      StringRelationLabel prefixRelation2 = prefixEdges2.iterator().next().getLabel();
-      StringRelationLabel suffixRelation2 = suffixEdges2.iterator().next().getLabel();
-
-      if (!searchedVars.contains(prefixVar1) && !searchedVars.contains(suffixVar1)) {
-        boolean concatEqual = false;
-        if (prefixRelation1 == prefixRelation2) {
-          concatEqual = checkEqualProperty(prefixVar1, prefixVar2, searchedVars);
-        } else {
-          concatEqual = checkReverseEqualProperty(prefixVar1, prefixVar2, searchedVars);
-        }
-
-        if (concatEqual) {
-          if (suffixRelation1 == suffixRelation2) {
-            concatEqual = checkEqualProperty(suffixVar1, suffixVar2, searchedVars);
-          } else {
-            concatEqual = checkReverseEqualProperty(suffixVar1, suffixVar2, searchedVars);
-          }
-        }
-
-        if (concatEqual) {
-          return true;
-        }
-      }
+    // 3. propagate through CONCAT or REVERSE_CONCAT edges
+    if (propagateThroughCONCAT(pMemoryLocation1, pMemoryLocation2, searchedVars, isEqualRelation)) {
+      return true;
     }
 
     // backtrace
@@ -459,101 +398,131 @@ public final class StringRelationAnalysisState
   }
 
   /**
-   * Check whether the reverse of one variable is equal to the other variable.
-   * We convert the constraint-reasoning problem to graph-searching problem.
+   * Further propagate the equality checking to other neighboring variables by EQUAL or REVERSE_EQUAL edges
+   * @param isEqualRelation whether to check EQUAL (true) or REVERSE_EQUAL (false)
    */
-  private boolean checkReverseEqualProperty(MemoryLocation pMemoryLocation1,
-                                     MemoryLocation pMemoryLocation2,
-                                     Set<MemoryLocation> searchedVars) {
-    // we will never search pMemoryLocation1 again
-    searchedVars.add(pMemoryLocation1);
+  private boolean propagateThroughEqualOrREVERSE_EQUAL(MemoryLocation pMemoryLocation1,
+                                                       MemoryLocation pMemoryLocation2,
+                                                       Set<MemoryLocation> searchedVars,
+                                                       boolean isEqualRelation) {
+    // get all the variables that are equal or reverse_equal to pMemoryLocation1 and pMemoryLocation2
+    // equalEdgesTo1 means the set of equals edge to pMemoryLocation1 (so and so forth)
+    // equalVarsTo1 means the set of variables are equal to pMemoryLocation1 (so and so forth)
+    Set<MemoryLocation> equalVarsTo1 = relationGraph.outNodesWithLabel(pMemoryLocation1, StringRelationLabel.EQUAL);
+    Set<MemoryLocation> reverseEqualVarsTo1 = relationGraph.outNodesWithLabel(pMemoryLocation2, StringRelationLabel.REVERSE_EQUAL);
+    Set<MemoryLocation> equalVarsTo2 = relationGraph.outNodesWithLabel(pMemoryLocation2, StringRelationLabel.EQUAL);
+    //equalVarsTo2.add(pMemoryLocation2);
+    Set<MemoryLocation> reverseEqualVarsTo2 = relationGraph.outNodesWithLabel(pMemoryLocation2, StringRelationLabel.REVERSE_EQUAL);
 
-    // 1. judge reverse equality directly
-    if (relationGraph.hasEdgesConnectingWithLabel(pMemoryLocation1, pMemoryLocation2, StringRelationLabel.REVERSE_EQUAL)) {
-      return true;
-    }
-
-    // 2. propagate through EQUAL edges
-    Set<RelationEdge<MemoryLocation, StringRelationLabel>> equalEdges
-        = relationGraph.outEdgesWithLabel(pMemoryLocation1, StringRelationLabel.EQUAL);
-
-    for (RelationEdge<MemoryLocation, StringRelationLabel> equalEdge : equalEdges) {
-      MemoryLocation equalMemLoc = equalEdge.getEndNode();
-      if (!searchedVars.contains(equalMemLoc)) {
-        if (checkReverseEqualProperty(equalMemLoc, pMemoryLocation2, searchedVars)) {
-          return true;
-        }
+    // check the equality relation between pMemoryLocation1's neighboring node and pMemoryLocation2
+    for (MemoryLocation equalVarTo1 : equalVarsTo1) {
+      if (checkEqualityProperty(equalVarTo1, pMemoryLocation2, searchedVars, isEqualRelation)) {
+        return true;
       }
     }
 
-    // 3. propagate through REVERSE_EQUAL edges
-    Set<RelationEdge<MemoryLocation, StringRelationLabel>> reverseEqualEdges
-        = relationGraph.outEdgesWithLabel(pMemoryLocation1, StringRelationLabel.REVERSE_EQUAL);
-
-    for (RelationEdge<MemoryLocation, StringRelationLabel> reverseEqualEdge : reverseEqualEdges) {
-      MemoryLocation equalMemLoc = reverseEqualEdge.getEndNode();
-      if (!searchedVars.contains(equalMemLoc)) {
-        if (checkEqualProperty(equalMemLoc, pMemoryLocation2, searchedVars)) {
-          return true;
-        }
+    for (MemoryLocation reverseEqualVarTo1 : reverseEqualVarsTo1) {
+      if (checkEqualityProperty(reverseEqualVarTo1, pMemoryLocation2, searchedVars, !isEqualRelation)) {
+        return true;
       }
     }
 
-    // 4. propagate through CONCAT or REVERSE_CONCAT edges
-    // prefixEdges1 is the edges from pMemoryLocation1's prefix (so and so forth)
-    Set<RelationEdge<MemoryLocation, StringRelationLabel>> prefixEdges1
+    // check the equality relation between pMemoryLocation1 and pMemoryLocation2's neighboring node
+    for (MemoryLocation equalVarTo2 : equalVarsTo2) {
+      if (checkEqualityProperty(equalVarTo2, pMemoryLocation1, searchedVars, isEqualRelation)) {
+        return true;
+      }
+    }
+
+    for (MemoryLocation reverseEqualVarTo2 : reverseEqualVarsTo2) {
+      if (checkEqualityProperty(reverseEqualVarTo2, pMemoryLocation1, searchedVars, !isEqualRelation)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Further propagate the equality checking to the prefix and suffix of two given variables
+   * @param isEqualRelation whether to check EQUAL (true) or REVERSE_EQUAL (false)
+   */
+  private boolean propagateThroughCONCAT(MemoryLocation pMemoryLocation1,
+                                        MemoryLocation pMemoryLocation2,
+                                        Set<MemoryLocation> searchedVars,
+                                        boolean isEqualRelation) {
+
+    // get the prefix and suffix of pMemoryLocation1 and pMemoryLocation2
+    // prefixEdgesTo1 is the edges from pMemoryLocation1's prefix (so and so forth)
+    Set<RelationEdge<MemoryLocation, StringRelationLabel>> prefixEdgesTo1
         = relationGraph.inEdgesWithLabel(pMemoryLocation1, StringRelationLabel.CONCAT_AS_PREFIX);
-    prefixEdges1.addAll(relationGraph.inEdgesWithLabel(pMemoryLocation1, StringRelationLabel.REVERSE_CONCAT_AS_PREFIX));
+    prefixEdgesTo1.addAll(relationGraph.inEdgesWithLabel(pMemoryLocation1, StringRelationLabel.REVERSE_CONCAT_AS_PREFIX));
 
-    Set<RelationEdge<MemoryLocation, StringRelationLabel>> suffixEdges1
+    Set<RelationEdge<MemoryLocation, StringRelationLabel>> suffixEdgesTo1
         = relationGraph.inEdgesWithLabel(pMemoryLocation1, StringRelationLabel.CONCAT_AS_SUFFIX);
-    suffixEdges1.addAll(relationGraph.inEdgesWithLabel(pMemoryLocation1, StringRelationLabel.REVERSE_CONCAT_AS_SUFFIX));
+    suffixEdgesTo1.addAll(relationGraph.inEdgesWithLabel(pMemoryLocation1, StringRelationLabel.REVERSE_CONCAT_AS_SUFFIX));
 
-    Set<RelationEdge<MemoryLocation, StringRelationLabel>> prefixEdges2
+    Set<RelationEdge<MemoryLocation, StringRelationLabel>> prefixEdgesTo2
         = relationGraph.inEdgesWithLabel(pMemoryLocation2, StringRelationLabel.CONCAT_AS_PREFIX);
-    prefixEdges2.addAll(relationGraph.inEdgesWithLabel(pMemoryLocation2, StringRelationLabel.REVERSE_CONCAT_AS_PREFIX));
+    prefixEdgesTo2.addAll(relationGraph.inEdgesWithLabel(pMemoryLocation2, StringRelationLabel.REVERSE_CONCAT_AS_PREFIX));
 
-    Set<RelationEdge<MemoryLocation, StringRelationLabel>> suffixEdges2
+    Set<RelationEdge<MemoryLocation, StringRelationLabel>> suffixEdgesTo2
         = relationGraph.inEdgesWithLabel(pMemoryLocation2, StringRelationLabel.CONCAT_AS_SUFFIX);
-    suffixEdges2.addAll(relationGraph.inEdgesWithLabel(pMemoryLocation2, StringRelationLabel.REVERSE_CONCAT_AS_SUFFIX));
+    suffixEdgesTo2.addAll(relationGraph.inEdgesWithLabel(pMemoryLocation2, StringRelationLabel.REVERSE_CONCAT_AS_SUFFIX));
 
     // we don't consider cases with multiple prefix and suffix
-    if (prefixEdges1.size() == 1 && suffixEdges1.size() == 1 &&
-        prefixEdges2.size() == 1 && suffixEdges2.size() > 1) {
-      MemoryLocation prefixVar1 = prefixEdges1.iterator().next().getStartNode();
-      MemoryLocation suffixVar1 = suffixEdges1.iterator().next().getStartNode();
-      MemoryLocation prefixVar2 = prefixEdges2.iterator().next().getStartNode();
-      MemoryLocation suffixVar2 = suffixEdges2.iterator().next().getStartNode();
+    if (prefixEdgesTo1.size() == 1 && suffixEdgesTo1.size() == 1 &&
+        prefixEdgesTo2.size() == 1 && suffixEdgesTo2.size() == 1) {
+      // prefixVarTo1 is the variable as pMemoryLocation1's prefix (so and so forth)
+      MemoryLocation prefixVarTo1 = prefixEdgesTo1.iterator().next().getStartNode();
+      MemoryLocation suffixVarTo1 = suffixEdgesTo1.iterator().next().getStartNode();
+      MemoryLocation prefixVarTo2 = prefixEdgesTo2.iterator().next().getStartNode();
+      MemoryLocation suffixVarTo2 = suffixEdgesTo2.iterator().next().getStartNode();
 
-      StringRelationLabel prefixRelation1 = prefixEdges1.iterator().next().getLabel();
-      StringRelationLabel suffixRelation1 = suffixEdges1.iterator().next().getLabel();
-      StringRelationLabel prefixRelation2 = prefixEdges2.iterator().next().getLabel();
-      StringRelationLabel suffixRelation2 = suffixEdges2.iterator().next().getLabel();
+      // prefixRelationTo1 is the equality relation between prefixVarTo1 and pMemoryLocation1 (so and so forth)
+      StringRelationLabel prefixRelationTo1 = prefixEdgesTo1.iterator().next().getLabel();
+      StringRelationLabel suffixRelationTo1 = suffixEdgesTo1.iterator().next().getLabel();
+      StringRelationLabel prefixRelationTo2 = prefixEdgesTo2.iterator().next().getLabel();
+      StringRelationLabel suffixRelationTo2 = suffixEdgesTo2.iterator().next().getLabel();
 
-      if (!searchedVars.contains(prefixVar1) && !searchedVars.contains(suffixVar1)) {
-        boolean concatReverseEqual = false;
-        if (prefixRelation1 == suffixRelation2) {
-          concatReverseEqual = checkReverseEqualProperty(prefixVar1, suffixVar2, searchedVars);
+      boolean concatEqual = false;
+      // propagate through CONCAT, based on isEqualRelation
+      if (isEqualRelation) {
+        // check EQUAL relation between pMemoryLocation1 and pMemoryLocation2
+        if (prefixRelationTo1 == prefixRelationTo2) {
+          concatEqual = checkEqualityProperty(prefixVarTo1, prefixVarTo2, searchedVars, true);
         } else {
-          concatReverseEqual = checkEqualProperty(prefixVar1, suffixVar2, searchedVars);
+          concatEqual = checkEqualityProperty(prefixVarTo1, prefixVarTo2, searchedVars, false);
         }
 
-        if (concatReverseEqual) {
-          if (suffixRelation1 == prefixRelation2) {
-            concatReverseEqual = checkReverseEqualProperty(suffixVar1, prefixVar2, searchedVars);
+        if (concatEqual) {
+          if (suffixRelationTo1 == suffixRelationTo2) {
+            concatEqual = checkEqualityProperty(suffixVarTo1, suffixVarTo2, searchedVars, true);
           } else {
-            concatReverseEqual = checkEqualProperty(suffixVar1, prefixVar2, searchedVars);
+            concatEqual = checkEqualityProperty(suffixVarTo1, suffixVarTo2, searchedVars, false);
           }
         }
+      } else {
+        // check REVERSE_EQUAL relation between pMemoryLocation1 and pMemoryLocation2
+        if (prefixRelationTo1 == suffixRelationTo2) {
+          concatEqual = checkEqualityProperty(prefixVarTo1, suffixVarTo2, searchedVars, false);
+        } else {
+          concatEqual = checkEqualityProperty(prefixVarTo1, suffixVarTo2, searchedVars, true);
+        }
 
-        if (concatReverseEqual) {
-          return true;
+        if (concatEqual) {
+          if (suffixRelationTo1 == prefixRelationTo2) {
+            concatEqual = checkEqualityProperty(suffixVarTo1, prefixVarTo2, searchedVars, false);
+          } else {
+            concatEqual = checkEqualityProperty(suffixVarTo1, prefixVarTo2, searchedVars, true);
+          }
         }
       }
-    }
 
-    // backtrace
-    searchedVars.remove(pMemoryLocation1);
+      if (concatEqual) {
+        return true;
+      }
+    }
     return false;
   }
 

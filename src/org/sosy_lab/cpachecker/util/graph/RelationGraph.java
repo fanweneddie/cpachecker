@@ -658,6 +658,42 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
     }
 
     /**
+     * Get all the nodes that points to the given node with a label
+     * @param pN the given node, which must not be null and must be in this graph
+     * @param pL the given label, which must not be null
+     */
+    public Set<N> inNodesWithLabel(N pN, L pL) {
+        assertNotNull(pN);
+        assert containsNode(pN);
+        assertNotNull(pL);
+
+        Set<N> inNodes = new HashSet<>();
+        Set<RE> inEdges = inEdgesWithLabel(pN, pL);
+        for (RE inEdge : inEdges) {
+            inNodes.add(inEdge.getStartNode());
+        }
+        return inNodes;
+    }
+
+    /**
+     * Get all the nodes that the given node points to with a label
+     * @param pN the given node, which must not be null and must be in this graph
+     * @param pL the given label, which must not be null
+     */
+    public Set<N> outNodesWithLabel(N pN, L pL) {
+        assertNotNull(pN);
+        assert containsNode(pN);
+        assertNotNull(pL);
+
+        Set<N> outNodes = new HashSet<>();
+        Set<RE> outEdges = outEdgesWithLabel(pN, pL);
+        for (RE edge : outEdges) {
+            outNodes.add(edge.getEndNode());
+        }
+        return outNodes;
+    }
+
+    /**
      * Check whether this graph contains a given node.
      * @param pN the given node, which must not be null
      * @return true if this graph contains <code>pN</code>
@@ -684,19 +720,6 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
         } else {
             return false;
         }
-    }
-
-    /**
-     * make the given edge reverse.
-     * @param pRE the given edge, which must be valid and in this graph
-     */
-    public void reverseEdge(RE pRE) {
-        assertNotNull(pRE);
-        assert pRE.valid() && containsEdge(pRE);
-
-        RE reversedEdge = (RE) pRE.getReservedEdge();
-        removeEdge(pRE);
-        addEdge(reversedEdge);
     }
 
     /**
