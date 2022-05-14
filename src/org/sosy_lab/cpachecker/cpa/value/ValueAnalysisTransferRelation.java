@@ -1363,6 +1363,8 @@ public class ValueAnalysisTransferRelation
           getAbstractSuccessorsForEdgeInStrengthen(pElement, stringAnalysisState, pPrecision, pCfaEdge);
       if (successors.size() == 1) {
         pElement = successors.iterator().next();
+      } else {
+        pElement = null;
       }
     } catch (Exception e) {
       logger.log(Level.SEVERE, "Exception in getting successors during strengthening stage", e);

@@ -27,11 +27,22 @@ import org.sosy_lab.cpachecker.cfa.model.CFAEdge;
 import org.sosy_lab.cpachecker.cfa.types.Type;
 import org.sosy_lab.cpachecker.cfa.types.java.JClassType;
 import org.sosy_lab.cpachecker.cfa.types.java.JConstructorType;
+import org.sosy_lab.cpachecker.cfa.types.java.JSimpleType;
+import org.sosy_lab.cpachecker.cfa.types.java.JType;
 
 /**
  * This class provides static methods to check a type or a method type.
  */
 public class TypeChecker {
+
+  public static final boolean isUnspecifiedType(Type type) {
+    if (!(type instanceof JSimpleType)) {
+      return false;
+    }
+
+    JSimpleType simpleType = (JSimpleType) type;
+    return simpleType.getType().isUnspecifiedType();
+  }
 
   /**
    * Check whether a given Java type is a generic java string type (e.g. String, StringBuilder).
@@ -53,11 +64,7 @@ public class TypeChecker {
     }
 
     JClassType classType = (JClassType) type;
-    if (classType.getName().equals("java.lang.String")) {
-      return true;
-    } else {
-      return false;
-    }
+    return classType.getName().equals("java.lang.String");
   }
 
   /**
@@ -71,11 +78,7 @@ public class TypeChecker {
     }
 
     JClassType classType = (JClassType) type;
-    if (classType.getName().equals("java.lang.StringBuilder")) {
-      return true;
-    } else {
-      return false;
-    }
+    return classType.getName().equals("java.lang.StringBuilder");
   }
 
   /**
@@ -145,9 +148,18 @@ public class TypeChecker {
 
     JIdExpression functionNameExpression = (JIdExpression) invocation.getFunctionNameExpression();
     JIdExpression callerObject = invocation.getReferencedVariable();
+    List<JExpression> params = invocation.getParameterExpressions();
+    if (params.size() != 1) {
+      return false;
+    }
+    JExpression paramObject = params.get(0);
 
-    return isJavaGenericStringType(callerObject.getExpressionType()) &&
-        functionNameExpression.toString().equals("equals");
+    JType callerType = callerObject.getExpressionType();
+    JType paramType = paramObject.getExpressionType();
+
+    return (isJavaGenericStringType(callerType) || isUnspecifiedType(callerType)) &&
+          (isJavaGenericStringType(paramType) || isUnspecifiedType(paramType)) &&
+            functionNameExpression.toString().equals("equals");
   }
 
   /**

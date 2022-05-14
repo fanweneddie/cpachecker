@@ -133,7 +133,10 @@ public abstract class ForwardingTransferRelation<S, T extends AbstractState, P e
     return checkNotNull(functionName);
   }
 
-  protected void setAuxiliaryState(AbstractState pAuxiliaryState) {}
+  protected void setAuxiliaryState(AbstractState pAuxiliaryState) {
+    auxiliaryState = pAuxiliaryState;
+  }
+  
   /**
    * This is the main method that delegates the control-flow to the
    * corresponding edge-type-specific methods.

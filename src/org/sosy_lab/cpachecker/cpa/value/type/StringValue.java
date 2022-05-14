@@ -124,7 +124,7 @@ public class StringValue implements Value {
   @Deprecated
   @Override
   public @Nullable NumericValue asNumericValue() {
-    throw new AssertionError("This method is not implemented");
+    return new NumericValue(0);
   }
 
   /**
