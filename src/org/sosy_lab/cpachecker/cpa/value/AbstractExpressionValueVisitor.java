@@ -1660,11 +1660,11 @@ public abstract class AbstractExpressionValueVisitor
       return calculateBooleanOperation(lVal, rVal, pOperator);
 
     } else if (pLValue instanceof InvocationValue) {
+      // check the result of an invocation
       InvocationValue invocationValue = (InvocationValue) pLValue;
       JReferencedMethodInvocationExpression invocation = invocationValue.getInvocation();
       return calculateAssumptionResult(invocation, pRValue, pOperator);
-  }
-    else if (pOperator == JBinaryExpression.BinaryOperator.EQUALS
+    } else if (pOperator == JBinaryExpression.BinaryOperator.EQUALS
         || pOperator == JBinaryExpression.BinaryOperator.NOT_EQUALS) {
       // true if EQUALS & (lValue == rValue) or if NOT_EQUALS & (lValue != rValue). False
       // otherwise. This is equivalent to an XNOR.
@@ -2032,50 +2032,33 @@ public abstract class AbstractExpressionValueVisitor
    */
   private Value calculateStringEqual(JReferencedMethodInvocationExpression invocation,
                                      boolean truthValue) {
+
+    JExpression string1 = invocation.getReferencedVariable();
+    JExpression string2 = invocation.getParameterExpressions().get(0);
+
     assert (mainState instanceof ValueAnalysisState);
 
     if (((ValueAnalysisState) mainState).getInAssertion()) {
-      return calculateStringEqualInAssertion(invocation, truthValue);
+      boolean mustEqual = checkStringMustEqual(string1, string2);
+      return BooleanValue.valueOf(TrivialOp.XNOR(mustEqual, truthValue));
     } else {
-      return calculateStringEqualInCondition(invocation, truthValue);
+      boolean mayEqual = checkStringMayEqual(string1, string2);
+      return BooleanValue.valueOf(TrivialOp.XNOR(mayEqual, truthValue));
     }
-  }
-
-  /**
-   * Calculate the result of string equals() invocation
-   * where the assumption is in an assertion statement (More rigid).
-   */
-  private Value calculateStringEqualInAssertion(JReferencedMethodInvocationExpression invocation,
-                                                boolean truthValue) {
-    return null;
-  }
-
-  /**
-   * Calculate the result of string equals() invocation
-   * where the assumption is in a conditional statement (Less rigid).
-   */
-  private Value calculateStringEqualInCondition(JReferencedMethodInvocationExpression invocation,
-                                                boolean truthValue) {
-
-    JIdExpression string1 = invocation.getReferencedVariable();
-    JExpression string2 = invocation.getParameterExpressions().get(0);
-
-    MemoryLocation stringVar1 = StringVariableGenerator.getExpressionMemLocation(string1, functionName);
-    MemoryLocation stringVar2 = StringVariableGenerator.getExpressionMemLocation(string2, functionName);
-
-    boolean mayEqual = checkStringMayEqual(stringVar1, stringVar2);
-    return BooleanValue.valueOf(TrivialOp.XNOR(mayEqual, truthValue));
   }
 
   /**
    * Check whether the value of two given string variables may be equal.
    * Two strings may be equal iff (they have equality relation, or the intersection of their value domain is not empty).
    * We first check whether they have equality relation, then check the intersection of their value domain.
-   * @param stringVar1 the first given string variable
-   * @param stringVar2 the second given string variable
+   * @param string1 the first given string variable
+   * @param string2 the second given string variable
    * @return true if the value may be equal
    */
-  private boolean checkStringMayEqual(MemoryLocation stringVar1, MemoryLocation stringVar2) {
+  private boolean checkStringMayEqual(JExpression string1, JExpression string2) {
+
+    MemoryLocation stringVar1 = StringVariableGenerator.getExpressionMemLocation(string1, functionName);
+    MemoryLocation stringVar2 = StringVariableGenerator.getExpressionMemLocation(string2, functionName);
 
     // check equality relation
     assert (auxiliaryState instanceof StringRelationAnalysisState);
@@ -2087,8 +2070,8 @@ public abstract class AbstractExpressionValueVisitor
 
     // check whether there the intersection of domain is empty
     ValueAnalysisState valueAnalysisState = ((ValueAnalysisState) mainState);
-    Value value1 = valueAnalysisState.getValueFor(stringVar1);
-    Value value2 = valueAnalysisState.getValueFor(stringVar2);
+    Value value1 = evaluate((JRightHandSide) string1, (JType) string1.getExpressionType());
+    Value value2 = evaluate((JRightHandSide) string2, (JType) string2.getExpressionType());
 
     if (!(value1 instanceof StringValue) || !(value2 instanceof StringValue)) {
       return false;
@@ -2112,11 +2095,14 @@ public abstract class AbstractExpressionValueVisitor
    * Check whether the value of two given string variables must be equal.
    * Two strings must be equal iff (they have equality relation, or they are the same singleton).
    * We first check whether they have equality relation, then check the strict equality of their value domain
-   * @param stringVar1 the first given string variable
-   * @param stringVar2 the second given string variable
+   * @param string1 the first given string variable
+   * @param string2 the second given string variable
    * @return true if the value must be equal
    */
-  private boolean checkStringMustEqual(MemoryLocation stringVar1, MemoryLocation stringVar2) {
+  private boolean checkStringMustEqual(JExpression string1, JExpression string2) {
+
+    MemoryLocation stringVar1 = StringVariableGenerator.getExpressionMemLocation(string1, functionName);
+    MemoryLocation stringVar2 = StringVariableGenerator.getExpressionMemLocation(string2, functionName);
 
     // check equality relation
     assert (auxiliaryState instanceof StringRelationAnalysisState);
@@ -2128,8 +2114,8 @@ public abstract class AbstractExpressionValueVisitor
 
     // check whether the value domains are strictly equal
     ValueAnalysisState valueAnalysisState = ((ValueAnalysisState) mainState);
-    Value value1 = valueAnalysisState.getValueFor(stringVar1);
-    Value value2 = valueAnalysisState.getValueFor(stringVar2);
+    Value value1 = evaluate((JRightHandSide) string1, (JType) string1.getExpressionType());
+    Value value2 = evaluate((JRightHandSide) string2, (JType) string2.getExpressionType());
 
     if (!(value1 instanceof StringValue) || !(value2 instanceof StringValue)) {
       return false;
@@ -2209,6 +2195,11 @@ public abstract class AbstractExpressionValueVisitor
 
       return createSymbolicExpression(valueObject, operandType, unaryOperator, expressionType);
 
+    } else if (valueObject instanceof InvocationValue) {
+      InvocationValue invocationValue = (InvocationValue) valueObject;
+      JReferencedMethodInvocationExpression invocation = invocationValue.getInvocation();
+      Value RValue = TypeChecker.isNOTOperator(unaryOperator) ? BooleanValue.valueOf(false) : BooleanValue.valueOf(true);
+      return calculateAssumptionResult(invocation, RValue, JBinaryExpression.BinaryOperator.EQUALS);
     } else {
       logger.log(Level.FINE, errorMsg);
       return UnknownValue.getInstance();
@@ -2878,9 +2869,11 @@ public abstract class AbstractExpressionValueVisitor
    */
   private static String castCharToStringValue(CharValue value) {
     Set<Character> chars = value.getChars();
-    Character[] charArray = new Character[chars.size()];
-    chars.toArray(charArray);
-    return String.valueOf(charArray);
+    String str = "";
+    for (char c : chars) {
+      str += String.valueOf(c);
+    }
+    return str;
   }
 
   /**
@@ -3092,14 +3085,14 @@ public abstract class AbstractExpressionValueVisitor
     assert (paramStartValue instanceof NumericValue);
 
     // get the second parameter as the end of substring (exclusive)
-    // if it does not exist, the default value is Integer.MAX_VALUE
+    // if it does not exist, the default value is 999
     Value paramEndValue = null;
     if (invocation.getParameterExpressions().size() > 1) {
       JExpression paramEnd = invocation.getParameterExpressions().get(1);
       paramEndValue = evaluate((JRightHandSide) paramEnd, (JType) paramEnd.getExpressionType());
       assert (paramEndValue instanceof NumericValue);
     } else {
-      paramEndValue = new NumericValue(Integer.MAX_VALUE);
+      paramEndValue = new NumericValue(999);
     }
 
     return getSubstringValueOfString((StringValue) callerValue, (NumericValue) paramStartValue,

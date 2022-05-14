@@ -379,6 +379,26 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
     }
 
     /**
+     * Get the relation edges that ends at a given node and with a given label.
+     * @param pN the given node, which must not be null and must be in this graph
+     * @param pL the given label, which must not be null
+     * @return the set of labeled in-edges of <code>pN</code>
+     */
+    public Set<RE> inEdgesWithLabel(N pN, L pL) {
+        assertNotNull(pN);
+        assert containsNode(pN);
+        assertNotNull(pL);
+
+        Set<RE> inEdges = new HashSet<>();
+        for (RE edge : adjEndList.get(pN)) {
+            if (edge.getLabel() == pL) {
+                inEdges.add(edge);
+            }
+        }
+        return inEdges;
+    }
+
+    /**
      * Get the relation edges that start from a given node.
      * @param pN the given node, which must not be null and must be in this graph
      * @return the set of out-edges of <code>pN</code>
@@ -390,6 +410,26 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
 
         Set<RE> outEdges = new HashSet<>();
         outEdges.addAll(adjStartList.get(pN));
+        return outEdges;
+    }
+
+    /**
+     * Get the relation edges that start from a given node and with a given label.
+     * @param pN the given node, which must not be null and must be in this graph
+     * @param pL the given label, which must not be null
+     * @return the set of labeled out-edges of <code>pN</code>
+     */
+    public Set<RE> outEdgesWithLabel(N pN, L pL) {
+        assertNotNull(pN);
+        assert containsNode(pN);
+        assertNotNull(pL);
+
+        Set<RE> outEdges = new HashSet<>();
+        for (RE edge : adjStartList.get(pN)) {
+            if (edge.getLabel() == pL) {
+                outEdges.add(edge);
+            }
+        }
         return outEdges;
     }
 
@@ -509,6 +549,28 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
     }
 
     /**
+     * Get the relation edges that start from one given node and end at the other given node with a given label.
+     * @param pN the expected starting node, which must not be null and must be in this graph
+     * @param pN1 the expected ending node, which must not be null and must be in this graph
+     * @param pL the relation label, which must not be null
+     * @return the set of relation edges from <code>pN</code> to <code>pN1</code>
+     */
+    public Set<RE> edgesConnectingWithLabel(N pN, N pN1, L pL) {
+        assertNotNull(pN);
+        assertNotNull(pN1);
+        assert containsNode(pN) && containsNode(pN);
+        assertNotNull(pL);
+
+        Set<RE> edges = new HashSet<>();
+        for (RE outEdge : outEdges(pN)) {
+            if (outEdge.endsAt(pN1) && outEdge.getLabel() == pL) {
+                edges.add(outEdge);
+            }
+        }
+        return edges;
+    }
+
+    /**
      * We don't use this method.
      * Please use {@link RelationGraph#edgesConnecting(Object, Object)}.
      */
@@ -581,6 +643,18 @@ public class RelationGraph<N, L, RE extends RelationEdge<N, L>>
         assertNotNull(pEndpointPair);
 
         return hasEdgeConnecting(pEndpointPair.nodeU(), pEndpointPair.nodeV());
+    }
+
+    /**
+     * Check whether there is edge that starts from one given node and ends at the other given node with a given label.
+     * @param pN the expected starting node, which must not be null and must be in this graph
+     * @param pN1 the expected ending node, which must not be null and must be in this graph
+     * @param pL the relation label, which must not be null
+     * @return true if the edge exists
+     */
+    public boolean hasEdgesConnectingWithLabel(N pN, N pN1, L pL) {
+        Set<RE> edges = edgesConnectingWithLabel(pN, pN1, pL);
+        return !edges.isEmpty();
     }
 
     /**
