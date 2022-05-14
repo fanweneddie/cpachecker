@@ -152,9 +152,9 @@ public abstract class AbstractExpressionValueVisitor
   private static final int SIZE_OF_JAVA_DOUBLE = 64;
 
   // for getting the states for strengthening
-  private AbstractState mainState = null;
+  private ValueAnalysisState mainState = null;
 
-  private AbstractState auxiliaryState = null;
+  private StringRelationAnalysisState auxiliaryState = null;
   private final String functionName;
   private final MachineModel machineModel;
 
@@ -185,8 +185,8 @@ public abstract class AbstractExpressionValueVisitor
     functionName = pFunctionName;
     machineModel = pMachineModel;
     logger = pLogger;
-    mainState = pMainState;
-    auxiliaryState = pAuxiliaryState;
+    mainState = (ValueAnalysisState) pMainState;
+    auxiliaryState = (StringRelationAnalysisState) pAuxiliaryState;
   }
 
   public boolean hasMissingFieldAccessInformation() {
@@ -2037,9 +2037,7 @@ public abstract class AbstractExpressionValueVisitor
     JExpression string1 = invocation.getReferencedVariable();
     JExpression string2 = invocation.getParameterExpressions().get(0);
 
-    assert (mainState instanceof ValueAnalysisState);
-
-    if (((ValueAnalysisState) mainState).getInAssertion()) {
+    if (mainState.getInAssertion()) {
       boolean mustEqual = checkStringMustEqual(string1, string2);
       return BooleanValue.valueOf(TrivialOp.XNOR(mustEqual, truthValue));
     } else {
@@ -2052,6 +2050,7 @@ public abstract class AbstractExpressionValueVisitor
    * Check whether the value of two given string variables may be equal.
    * Two strings may be equal iff (they have equality relation, or the intersection of their value domain is not empty).
    * We first check whether they have equality relation, then check the intersection of their value domain.
+   * If the answer is true, we will refine the current main state.
    * @param string1 the first given string variable
    * @param string2 the second given string variable
    * @return true if the value may be equal
@@ -2062,15 +2061,12 @@ public abstract class AbstractExpressionValueVisitor
     MemoryLocation stringVar2 = StringVariableGenerator.getExpressionMemLocation(string2, functionName);
 
     // check equality relation
-    assert (auxiliaryState instanceof StringRelationAnalysisState);
-    StringRelationAnalysisState stringRelationAnalysisState = (StringRelationAnalysisState) auxiliaryState;
-    boolean hasEqualRelation = stringRelationAnalysisState.checkProperty(stringVar1, stringVar2, RelationProperty.EQUAL);
+    boolean hasEqualRelation = auxiliaryState.checkProperty(stringVar1, stringVar2, RelationProperty.EQUAL);
     if (hasEqualRelation) {
       return true;
     }
 
     // check whether there the intersection of domain is empty
-    ValueAnalysisState valueAnalysisState = ((ValueAnalysisState) mainState);
     Value value1 = evaluate((JRightHandSide) string1, (JType) string1.getExpressionType());
     Value value2 = evaluate((JRightHandSide) string2, (JType) string2.getExpressionType());
 
@@ -2089,7 +2085,15 @@ public abstract class AbstractExpressionValueVisitor
     }
 
     Automaton intersectionDomain = stringDomain1.intersection(stringDomain2);
-    return !intersectionDomain.isEmpty();
+    if (!intersectionDomain.isEmpty()) {
+      // refine the value of string variables
+      StringValue newValue = new StringValue(intersectionDomain);
+      mainState.assignConstant(stringVar1, newValue, (JType) string1.getExpressionType());
+      mainState.assignConstant(stringVar2, newValue, (JType) string2.getExpressionType());
+      return true;
+    } else {
+      return false;
+    }
   }
 
   /**
@@ -2106,15 +2110,12 @@ public abstract class AbstractExpressionValueVisitor
     MemoryLocation stringVar2 = StringVariableGenerator.getExpressionMemLocation(string2, functionName);
 
     // check equality relation
-    assert (auxiliaryState instanceof StringRelationAnalysisState);
-    StringRelationAnalysisState stringRelationAnalysisState = (StringRelationAnalysisState) auxiliaryState;
-    boolean hasEqualRelation = stringRelationAnalysisState.checkProperty(stringVar1, stringVar2, RelationProperty.EQUAL);
+    boolean hasEqualRelation = auxiliaryState.checkProperty(stringVar1, stringVar2, RelationProperty.EQUAL);
     if (hasEqualRelation) {
       return true;
     }
 
     // check whether the value domains are strictly equal
-    ValueAnalysisState valueAnalysisState = ((ValueAnalysisState) mainState);
     Value value1 = evaluate((JRightHandSide) string1, (JType) string1.getExpressionType());
     Value value2 = evaluate((JRightHandSide) string2, (JType) string2.getExpressionType());
 
