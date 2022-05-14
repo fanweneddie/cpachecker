@@ -291,4 +291,21 @@ public class TypeChecker {
         params.size() == 1 &&
         functionNameExpression.toString().equals("charAt");
   }
+
+  /**
+   * Check whether the given method is setCharAt() of String.
+   */
+  public static boolean isSetCharAt(JReferencedMethodInvocationExpression invocation) {
+    if (!(invocation.getFunctionNameExpression() instanceof JIdExpression)) {
+      return false;
+    }
+
+    JIdExpression functionNameExpression = (JIdExpression) invocation.getFunctionNameExpression();
+    JIdExpression callerObject = invocation.getReferencedVariable();
+    List<JExpression> params = invocation.getParameterExpressions();
+
+    return isJavaGenericStringType(callerObject.getExpressionType()) &&
+        params.size() == 2 &&
+        functionNameExpression.toString().equals("setCharAt");
+  }
 }

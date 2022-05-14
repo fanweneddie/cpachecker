@@ -62,19 +62,6 @@ public class StringValue implements Value {
   }
 
   /**
-   * Reverse a given string value, by doing reverse operation on its {@link #valueDomain}.
-   * @param pStringValue the given string value, which must not be null
-   * @return the result of the reverse of <code>pStringValue</code>
-   */
-  public static StringValue reverse(StringValue pStringValue) {
-    assertNotNull(pStringValue);
-    assertNotNull(pStringValue.valueDomain);
-
-    SpecialOperations.reverse(pStringValue.valueDomain);
-    return pStringValue;
-  }
-
-  /**
    * Concatenate two given string values, by doing concat operation on their {@link #valueDomain}.
    * @param pStringValue1 the first given string value, which must not be null
    * @param pStringValue2 the second given string value, which must not be null

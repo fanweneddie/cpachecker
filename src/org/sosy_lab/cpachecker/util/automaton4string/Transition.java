@@ -109,6 +109,14 @@ public class Transition implements Serializable, Cloneable {
 		}
 		return chars;
 	}
+
+	/**
+	 * Set the char of this transition.
+	 */
+	public void setChar(char c) {
+		min = c;
+		max = c;
+	}
 	
 	/** 
 	 * Checks for equality.

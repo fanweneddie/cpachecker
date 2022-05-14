@@ -630,7 +630,7 @@ public class Automaton implements Serializable, Cloneable {
 	/**
 	 * Returns a clone of this automaton unless <code>allow_mutation</code> is set, expands if singleton.
 	 */
-	Automaton cloneExpandedIfRequired() {
+	public Automaton cloneExpandedIfRequired() {
 		if (allow_mutation) {
 			expandSingleton();
 			return this;
@@ -1132,6 +1132,13 @@ public class Automaton implements Serializable, Cloneable {
 	}
 
 	/**
+	 * See {@link SpecialOperations#setCharAt(int, char, Automaton)}.
+	 */
+	public Automaton setCharAt(int depth, char c) {
+		return SpecialOperations.setCharAt(depth, c, this);
+	}
+
+	/**
 	 * See {@link SpecialOperations#getShortestStringLength(Automaton)}.
 	 */
 	public int getShortestStringLength() {
@@ -1140,5 +1147,18 @@ public class Automaton implements Serializable, Cloneable {
 
 	public Automaton setLength(int length) {
 		return SpecialOperations.SetLength(length, this);
+	}
+
+	/**
+	 * Reverse this automaton.
+	 */
+	public void reverse() {
+		if (isSingleton()) {
+			StringBuilder str = new StringBuilder(singleton);
+			str.reverse();
+			singleton = str.toString();
+		} else {
+			SpecialOperations.reverse(this);
+		}
 	}
 }

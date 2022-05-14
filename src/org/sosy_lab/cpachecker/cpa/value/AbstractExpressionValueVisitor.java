@@ -119,6 +119,7 @@ import org.sosy_lab.cpachecker.util.BuiltinFunctions;
 import org.sosy_lab.cpachecker.util.BuiltinOverflowFunctions;
 import org.sosy_lab.cpachecker.util.automaton4string.Automaton;
 import org.sosy_lab.cpachecker.util.states.MemoryLocation;
+import scala.Char;
 
 /**
  * This Visitor implements an evaluation strategy
@@ -2353,6 +2354,10 @@ public abstract class AbstractExpressionValueVisitor
       if (TypeChecker.isCharAt(invocation)) {
         return getCharValue(invocation);
       }
+      // consider setCharAt()
+      if (TypeChecker.isSetCharAt(invocation)) {
+        return getSetStringValue(invocation);
+      }
       // consider boolean methods
       if (TypeChecker.isBooleanMethod(invocation)) {
         return getInvocationValue(invocation);
@@ -3027,9 +3032,12 @@ public abstract class AbstractExpressionValueVisitor
    * Return the value of a string reverse.
    */
   private Value getReverseValue(JReferencedMethodInvocationExpression invocation) {
-   Value callerValue = getCallerValue(invocation);
+    Value callerValue = getCallerValue(invocation);
+    assert (callerValue instanceof StringValue);
 
-    return StringValue.reverse((StringValue) callerValue);
+    Automaton callerDomain = ((StringValue) callerValue).getValueDomain().clone();
+    callerDomain.reverse();
+    return new StringValue(callerDomain);
   }
 
   /**
@@ -3107,6 +3115,7 @@ public abstract class AbstractExpressionValueVisitor
     Value callerValue = evaluate((JRightHandSide) caller, (JType) caller.getExpressionType());
     assert (callerValue instanceof StringValue);
 
+    // get the position of the chars
     JExpression param = invocation.getParameterExpressions().get(0);
     Value paramValue = evaluate((JRightHandSide) param, (JType) param.getExpressionType());
     assert (paramValue instanceof NumericValue);
@@ -3114,6 +3123,32 @@ public abstract class AbstractExpressionValueVisitor
     int index = (int) ((NumericValue) paramValue).longValue();
     Set<Character> chars = ((StringValue) callerValue).getValueDomain().getCharsAt(index);
     return new CharValue(chars);
+  }
+
+  /**
+   * Return the string value after setting a char at a position.
+   */
+  private Value getSetStringValue(JReferencedMethodInvocationExpression invocation) {
+    JIdExpression caller = invocation.getReferencedVariable();
+    Value callerValue = evaluate((JRightHandSide) caller, (JType) caller.getExpressionType());
+    assert (callerValue instanceof StringValue);
+    StringValue callerStringValue = (StringValue) callerValue;
+
+    // get the position of the char
+    JExpression paramDepth = invocation.getParameterExpressions().get(0);
+    Value paramDepthValue = evaluate((JRightHandSide) paramDepth, (JType) paramDepth.getExpressionType());
+    assert (paramDepthValue instanceof NumericValue);
+
+    // get the char to set
+    JExpression paramChar = invocation.getParameterExpressions().get(1);
+    Value paramCharValue = evaluate((JRightHandSide) paramChar, (JType) paramChar.getExpressionType());
+    assert (paramCharValue instanceof CharValue);
+
+    int index = (int) ((NumericValue) paramDepthValue).longValue();
+    char c = ((CharValue) paramCharValue).getChars().iterator().next();
+
+    Automaton newAutomaton = callerStringValue.getValueDomain().setCharAt(index, c);
+    return new StringValue(newAutomaton);
   }
 
   /**

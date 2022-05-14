@@ -630,15 +630,11 @@ final public class SpecialOperations {
 		// get the new start states at the depth of start
 		a = a.cloneExpandedIfRequired();
 		a.determinize();
-		Set<State> startStates = (Set<State>) getInfoAt(start, a.initial,
-					false, true, false);
+		Set<State> startStates = (Set<State>) getInfoAt(start, a.initial, false, true);
 		// get the transitions starting from each new start states
 		// inside the transitions, the sub-automaton ends at the depth of end
 		for (State state : startStates) {
-			Set<Transition> subTransitions = (Set<Transition>) getInfoAt(end - start, state,
-							false, false, true);
-			state.resetTransitions();
-			state.addTransitions(subTransitions);
+			state = setInfoAt(end - start, (char) 0, state, false, true);
 		}
 		// create another single new state to point to all new start states
 		State newStartState = new State();
@@ -668,8 +664,31 @@ final public class SpecialOperations {
 
 		a = a.cloneExpandedIfRequired();
 		a.determinize();
-		return (Set<Character>) getInfoAt(depth, a.initial,
-					true, false, false);
+		return (Set<Character>) getInfoAt(depth, a.initial, true, false);
+	}
+
+	/**
+	 * Set the char at a given depth in the given automaton.
+	 * @param depth the given depth, or can be seen as the index of the char
+	 * @param c the given char to set
+	 * @param a the given automaton
+	 * @return a new automaton after this revision
+	 */
+	public static Automaton setCharAt(int depth, char c, Automaton a) {
+		// if the automaton only describes a singleton string,
+		// directly set the char
+		if (a.isSingleton()) {
+			StringBuilder str = new StringBuilder(a.singleton);
+			str.setCharAt(depth, c);
+			Automaton newAutomaton = BasicAutomata.makeString(str.toString());
+			return newAutomaton;
+		}
+
+		a = a.cloneExpandedIfRequired();
+		a.determinize();
+
+		a.initial = setInfoAt(depth, c, a.initial, true, false);
+		return a;
 	}
 
 	/**
@@ -684,27 +703,21 @@ final public class SpecialOperations {
 	 */
 	private static Set<?> getInfoAt(int depth, State initialState,
 					boolean returnChars,
-					boolean returnStates,
-					boolean returnTransitions) {
-		// sanity check for input parameter
-		if (!onlyOneIsTrue(returnChars, returnStates, returnTransitions)) {
+					boolean returnStates) {
+		// sanity check for input parameter (only one is true)
+		if (!(returnChars ^ returnStates)) {
 			return new HashSet<>();
 		}
 
 		// the collection for 3 separate scenario
 		Set<Character> chars = new HashSet<>();
 		Set<State> states = new HashSet<>();
-		Set<Transition> transitions = new HashSet<>();
 
 		// do DFS to search the characters at the given depth from state
 		// the work list for DFS, whose element is the pair of state and its depth
 		Stack<Pair<State, Integer>> workList = new Stack<>();
 		// initialize by adding the initial state
 		workList.add(Pair.of(initialState, 0));
-		// add initial transitions to get the sub-transitions from 0 to depth
-		if (returnTransitions && depth > 0) {
-			transitions.addAll(initialState.transitions);
-		}
 
 		while (!workList.empty()) {
 			Pair<State, Integer> curPair = workList.pop();
@@ -712,18 +725,12 @@ final public class SpecialOperations {
 			int curDepth = curPair.getSecond();
 
 			if (curDepth == depth) {
-				// delete the out transition from current state
-				if (returnTransitions) {
-					curState.resetTransitions();
-					curState.setAccept(true);
-				} else {
-					// collect the chars or states at the transition of this depth
-					for (Transition transition : curState.transitions) {
-						if (returnChars) {
-							chars.addAll(transition.getChars());
-						} else if (returnStates) {
-							states.add(transition.to);
-						}
+				// collect the chars or states at the transition of this depth
+				for (Transition transition : curState.transitions) {
+					if (returnChars) {
+						chars.addAll(transition.getChars());
+					} else if (returnStates) {
+						states.add(transition.to);
 					}
 				}
 				continue;
@@ -739,22 +746,67 @@ final public class SpecialOperations {
 
 		if (returnChars) {
 			return chars;
-		} else if (returnStates) {
-			return states;
 		} else {
-			return transitions;
+			return states;
 		}
 	}
 
 	/**
-	 * Check whether only one boolean among three is true.
+	 * Set the information at a given depth from a given initial state.
+	 * @param depth the given depth, or can be seen as the index of the chars
+	 * @param c the given char to be possibly set
+	 * @param initialState the given initial state
+	 * @param setChar whether to set char as <code>c</code> at <code>depth</code>
+	 * @param setLength whether to set length as <code>depth</code>
+	 * @return the revised initial state
 	 */
-	private static boolean onlyOneIsTrue(boolean a, boolean b, boolean c) {
-		if ((a && !b && !c) || (!a && b && !c) || (!a && !b && c)) {
-			return true;
-		} else {
-			return false;
+	private static State setInfoAt(int depth, char c,
+				       State initialState,
+					boolean setChar,
+					boolean setLength) {
+		// sanity check for input parameter
+		if (!(setChar ^ setLength)) {
+			return new State();
 		}
+		// we can't set length as negative
+		if (setLength && depth < 0) {
+			return new State();
+		}
+
+		// do DFS to search the characters at the given depth from state
+		// the work list for DFS, whose element is the pair of state and its depth
+		Stack<Pair<State, Integer>> workList = new Stack<>();
+		// initialize by adding the initial state
+		workList.add(Pair.of(initialState, 0));
+
+		while (!workList.empty()) {
+			Pair<State, Integer> curPair = workList.pop();
+			State curState = curPair.getFirst();
+			int curDepth = curPair.getSecond();
+
+			if (curDepth == depth) {
+				// delete the out transition from current state
+				if (setLength) {
+					curState.resetTransitions();
+					curState.setAccept(true);
+				} else {
+					// set the char at the given depth
+					for (Transition transition : curState.transitions) {
+						transition.setChar(c);
+					}
+				}
+				continue;
+			}
+
+			// explore successors (without a guaranteed sequence)
+			for (Transition transition : curState.transitions) {
+				State nextState = transition.to;
+				Pair<State, Integer> nextPair = Pair.of(nextState, curDepth + 1);
+				workList.add(nextPair);
+			}
+		}
+
+		return initialState;
 	}
 
 	/**
