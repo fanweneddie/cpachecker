@@ -927,4 +927,28 @@ final public class SpecialOperations {
 
 		return a;
 	}
+
+	/**
+	 * Return the automaton that represents the prefix language of a given automaton.
+	 */
+	public static Automaton getPrefix(Automaton a) {
+		a = a.cloneExpandedIfRequired();
+		a.determinize();
+		for (State state : a.getStates()) {
+			state.setAccept(true);
+		}
+		return a;
+	}
+
+	/**
+	 * Return the automaton that represents the suffix language of a given automaton.
+	 */
+	public static Automaton getSuffix(Automaton a) {
+		a = a.cloneExpandedIfRequired();
+		a.determinize();
+		a.reverse();
+		a = getPrefix(a);
+		a.reverse();
+		return a;
+	}
 }

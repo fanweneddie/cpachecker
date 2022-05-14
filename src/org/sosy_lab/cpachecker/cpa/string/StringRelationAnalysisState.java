@@ -318,6 +318,15 @@ public final class StringRelationAnalysisState
     invocationMap.remove(pMemoryLocation);
   }
 
+  public Set<RelationEdge<MemoryLocation, StringRelationLabel>> getOutEdges(MemoryLocation pMemoryLocation) {
+    return relationGraph.outEdges(pMemoryLocation);
+  }
+
+  public Set<RelationEdge<MemoryLocation, StringRelationLabel>> getInEdges(MemoryLocation pMemoryLocation) {
+    return relationGraph.inEdges(pMemoryLocation);
+  }
+
+
   /**
    * Check whether the given property between two variables stands.
    * If any one of those two relation is not in {@link #relationGraph}, then return false.
@@ -629,7 +638,7 @@ public final class StringRelationAnalysisState
    * In the comments below, we suppose the variable represented by starting node as x,
    * and the variable represented by ending node as y.
    */
-  enum StringRelationLabel {
+  public enum StringRelationLabel {
     /** x and y are equal */
     EQUAL,
     /** x and y are reverse to each other */

@@ -9,6 +9,7 @@
 package org.sosy_lab.cpachecker.cpa.value;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkElementIndex;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.Lists;
@@ -17,6 +18,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -93,6 +95,7 @@ import org.sosy_lab.cpachecker.cfa.types.java.JType;
 import org.sosy_lab.cpachecker.core.interfaces.AbstractState;
 import org.sosy_lab.cpachecker.cpa.string.StringRelationAnalysisState;
 import org.sosy_lab.cpachecker.cpa.string.StringRelationAnalysisState.RelationProperty;
+import org.sosy_lab.cpachecker.cpa.string.StringRelationAnalysisState.StringRelationLabel;
 import org.sosy_lab.cpachecker.cpa.string.StringVariableGenerator;
 import org.sosy_lab.cpachecker.cpa.string.TrivialOp;
 import org.sosy_lab.cpachecker.cpa.string.TypeChecker;
@@ -118,6 +121,7 @@ import org.sosy_lab.cpachecker.util.BuiltinFloatFunctions;
 import org.sosy_lab.cpachecker.util.BuiltinFunctions;
 import org.sosy_lab.cpachecker.util.BuiltinOverflowFunctions;
 import org.sosy_lab.cpachecker.util.automaton4string.Automaton;
+import org.sosy_lab.cpachecker.util.graph.RelationEdge;
 import org.sosy_lab.cpachecker.util.states.MemoryLocation;
 import scala.Char;
 
@@ -2088,8 +2092,8 @@ public abstract class AbstractExpressionValueVisitor
     if (!intersectionDomain.isEmpty()) {
       // refine the value of string variables
       StringValue newValue = new StringValue(intersectionDomain);
-      mainState.assignConstant(stringVar1, newValue, (JType) string1.getExpressionType());
-      mainState.assignConstant(stringVar2, newValue, (JType) string2.getExpressionType());
+      startRefinement(stringVar1, newValue);
+      startRefinement(stringVar2, newValue);
       return true;
     } else {
       return false;
@@ -2134,6 +2138,95 @@ public abstract class AbstractExpressionValueVisitor
     }
 
     return stringDomain1.strictlyEquivalent(stringDomain2);
+  }
+
+  private void startRefinement(MemoryLocation variable, StringValue newValue) {
+    Set<MemoryLocation> visitedVars = new HashSet<>();
+    propagateRefinement(variable, newValue, visitedVars);
+  }
+
+  private void propagateRefinement(MemoryLocation variable, StringValue value, Set<MemoryLocation> visitedVars) {
+    if (!mainState.contains(variable) || visitedVars.contains(variable)) {
+      return;
+    }
+    visitedVars.add(variable);
+
+    Type type = mainState.getTypeForMemoryLocation(variable);
+    mainState.assignConstant(variable, value, type);
+
+    // propagate through edges that point to variable in relationGraph
+    for (RelationEdge<MemoryLocation, StringRelationLabel> inEdge : auxiliaryState.getInEdges(variable)) {
+      MemoryLocation newVar = inEdge.getStartNode();
+      StringRelationLabel label = inEdge.getLabel();
+      StringValue newValue;
+      switch (label) {
+        case EQUAL:
+          newValue = value;
+          propagateRefinement(newVar, newValue, visitedVars);
+          break;
+        case REVERSE_EQUAL:
+          newValue = StringValue.reverse(value);
+          propagateRefinement(newVar, newValue, visitedVars);
+          break;
+        case CONCAT_AS_PREFIX:
+          newValue = StringValue.prefix(value);
+          propagateRefinement(newVar, newValue, visitedVars);
+          break;
+        case CONCAT_AS_SUFFIX:
+          newValue = StringValue.suffix(value);
+          propagateRefinement(newVar, newValue, visitedVars);
+          break;
+        case REVERSE_CONCAT_AS_PREFIX:
+          newValue = StringValue.prefix(value);
+          newValue = StringValue.reverse(newValue);
+          propagateRefinement(newVar, newValue, visitedVars);
+          break;
+        case REVERSE_CONCAT_AS_SUFFIX:
+          newValue = StringValue.suffix(value);
+          newValue = StringValue.reverse(newValue);
+          propagateRefinement(newVar, newValue, visitedVars);
+          break;
+        default:
+          break;
+      }
+    }
+
+    // propagate through edges that start from variable in relationGraph
+    for (RelationEdge<MemoryLocation, StringRelationLabel> outEdge : auxiliaryState.getOutEdges(variable)) {
+      MemoryLocation newVar = outEdge.getEndNode();
+      StringRelationLabel label = outEdge.getLabel();
+      StringValue newValue;
+      switch (label) {
+        case EQUAL:
+          newValue = value;
+          propagateRefinement(newVar, newValue, visitedVars);
+          break;
+        case REVERSE_EQUAL:
+          newValue = StringValue.reverse(value);
+          propagateRefinement(newVar, newValue, visitedVars);
+          break;
+        case CONCAT_AS_PREFIX:
+          newValue = StringValue.extendAtBack(value);
+          propagateRefinement(newVar, newValue, visitedVars);
+          break;
+        case CONCAT_AS_SUFFIX:
+          newValue = StringValue.extendAtFront(value);
+          propagateRefinement(newVar, newValue, visitedVars);
+          break;
+        case REVERSE_CONCAT_AS_PREFIX:
+          newValue = StringValue.extendAtBack(value);
+          newValue = StringValue.reverse(newValue);
+          propagateRefinement(newVar, newValue, visitedVars);
+          break;
+        case REVERSE_CONCAT_AS_SUFFIX:
+          newValue = StringValue.extendAtFront(value);
+          newValue = StringValue.reverse(newValue);
+          propagateRefinement(newVar, newValue, visitedVars);
+          break;
+        default:
+          break;
+      }
+    }
   }
 
   @Override

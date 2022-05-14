@@ -1145,12 +1145,16 @@ public class Automaton implements Serializable, Cloneable {
 		return SpecialOperations.getShortestStringLength(this);
 	}
 
+	/**
+	 * See {@link SpecialOperations#SetLength(int, Automaton)}.
+	 */
 	public Automaton setLength(int length) {
 		return SpecialOperations.SetLength(length, this);
 	}
 
 	/**
 	 * Reverse this automaton.
+	 * See {@link SpecialOperations#reverse(Automaton)}.
 	 */
 	public void reverse() {
 		if (isSingleton()) {
@@ -1161,4 +1165,37 @@ public class Automaton implements Serializable, Cloneable {
 			SpecialOperations.reverse(this);
 		}
 	}
+
+	/**
+	 * See {@link SpecialOperations#getPrefix(Automaton)}.
+	 */
+	public static Automaton getPrefix(Automaton a) {
+		return SpecialOperations.getPrefix(a);
+	}
+
+	/**
+	 * See {@link SpecialOperations#getSuffix(Automaton)}.
+	 */
+	public static Automaton getSuffix(Automaton a) {
+		return SpecialOperations.getSuffix(a);
+	}
+
+	/**
+	 * Extend a given automaton by adding a \Sigma^* after it.
+	 * Meaning that the input automaton is the prefix of the output automaton.
+	 */
+	public static Automaton getExtendAtBack(Automaton a) {
+		Automaton anyString = Automaton.makeAnyString();
+		return a.concatenate(anyString);
+	}
+
+	/**
+	 * Extend a given automaton by adding a \Sigma^* before it.
+	 * Meaning that the input automaton is the suffix of the output automaton.
+	 */
+	public static Automaton getExtendAtFront(Automaton a) {
+		Automaton anyString = Automaton.makeAnyString();
+		return anyString.concatenate(a);
+	}
+
 }

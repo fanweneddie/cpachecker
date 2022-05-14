@@ -78,6 +78,47 @@ public class StringValue implements Value {
     return new StringValue(newValueDomain);
   }
 
+  public static StringValue reverse(StringValue pStringValue) {
+    assertNotNull(pStringValue);
+    assertNotNull(pStringValue.valueDomain);
+
+    Automaton newDomain = pStringValue.valueDomain.clone();
+    newDomain.reverse();
+    return new StringValue(newDomain);
+  }
+
+  public static StringValue suffix(StringValue pStringValue) {
+    assertNotNull(pStringValue);
+    assertNotNull(pStringValue.valueDomain);
+
+    Automaton newDomain = Automaton.getSuffix(pStringValue.valueDomain);
+    return new StringValue(newDomain);
+  }
+
+  public static StringValue prefix(StringValue pStringValue) {
+    assertNotNull(pStringValue);
+    assertNotNull(pStringValue.valueDomain);
+
+    Automaton newDomain = Automaton.getPrefix(pStringValue.valueDomain);
+    return new StringValue(newDomain);
+  }
+
+  public static StringValue extendAtBack(StringValue pStringValue) {
+    assertNotNull(pStringValue);
+    assertNotNull(pStringValue.valueDomain);
+
+    Automaton newDomain = Automaton.getExtendAtBack(pStringValue.valueDomain);
+    return new StringValue(newDomain);
+  }
+
+  public static StringValue extendAtFront(StringValue pStringValue) {
+    assertNotNull(pStringValue);
+    assertNotNull(pStringValue.valueDomain);
+
+    Automaton newDomain = Automaton.getExtendAtFront(pStringValue.valueDomain);
+    return new StringValue(newDomain);
+  }
+
   /**
    * Always return <code>false</code>, since {@link StringValue}
    * always stores a string, not a number.
