@@ -48,6 +48,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.checkerframework.checker.units.qual.A;
 
 /**
  * Finite-state automaton with regular expression operations.
@@ -200,7 +201,7 @@ public class Automaton implements Serializable, Cloneable {
 			minimize();
 	}
 	
-	boolean isSingleton() {
+	public boolean isSingleton() {
 		return singleton!=null;
 	}
 
@@ -1081,6 +1082,13 @@ public class Automaton implements Serializable, Cloneable {
 	public String getCommonPrefix() {
 		return SpecialOperations.getCommonPrefix(this);
 	}
+
+	/**
+	 * See {@link SpecialOperations#getCommonSuffix(Automaton)}.
+	 */
+	public String getCommonSuffix() {
+		return SpecialOperations.getCommonSuffix(this);
+	}
 	
 	/**
 	 * See {@link SpecialOperations#prefixClose(Automaton)}.
@@ -1196,6 +1204,38 @@ public class Automaton implements Serializable, Cloneable {
 	public static Automaton getExtendAtFront(Automaton a) {
 		Automaton anyString = Automaton.makeAnyString();
 		return anyString.concatenate(a);
+	}
+
+	/**
+	 * See {@link SpecialOperations#isPrefixOf(Automaton, Automaton)}.
+	 */
+	public static boolean isPrefixOf(Automaton a1, Automaton a2) {
+		assert a1.isSingleton();
+		return SpecialOperations.isPrefixOf(a1, a2);
+	}
+
+	/**
+	 * See {@link SpecialOperations#isSuffixOf(Automaton, Automaton)}.
+	 */
+	public static boolean isSuffixOf(Automaton a1, Automaton a2) {
+		assert a1.isSingleton();
+		return SpecialOperations.isSuffixOf(a1, a2);
+	}
+
+	/**
+	 * See {@link SpecialOperations#setPrefixWith(Automaton, Automaton)}.
+	 */
+	public static Automaton setPrefixWith(Automaton a1, Automaton a2) {
+		assert  a1.isSingleton();
+		return SpecialOperations.setPrefixWith(a1, a2);
+	}
+
+	/**
+	 * See {@link SpecialOperations#setSuffixWith(Automaton, Automaton)}.
+	 */
+	public static Automaton setSuffixWith(Automaton a1, Automaton a2) {
+		assert  a1.isSingleton();
+		return SpecialOperations.setSuffixWith(a1, a2);
 	}
 
 }

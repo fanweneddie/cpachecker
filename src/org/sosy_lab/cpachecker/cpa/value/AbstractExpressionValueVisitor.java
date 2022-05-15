@@ -2066,31 +2066,41 @@ public abstract class AbstractExpressionValueVisitor
     }
   }
 
+  /**
+   * Calculate the result of string startsWith() invocation.
+   * @param invocation the string startsWith() invocation
+   * @param truthValue startsWith or not
+   */
   private Value calculateStringStartsWith(JReferencedMethodInvocationExpression invocation,
                                             boolean truthValue) {
     JExpression string1 = invocation.getReferencedVariable();
     JExpression string2 = invocation.getParameterExpressions().get(0);
 
     if (mainState.getInAssertion()) {
-      boolean mustStartsWith = checkStringMustStartsWith(string1, string2);
+      boolean mustStartsWith = checkStringMustStartWith(string1, string2);
       return BooleanValue.valueOf(TrivialOp.XNOR(mustStartsWith, truthValue));
     } else {
-      boolean mayStartsWith = checkStringMayStartsWith(string1, string2);
+      boolean mayStartsWith = checkStringMayStartWith(string1, string2);
       return BooleanValue.valueOf(TrivialOp.XNOR(mayStartsWith, truthValue));
     }
   }
 
+  /**
+   * Calculate the result of string endsWith() invocation.
+   * @param invocation the string endsWith() invocation
+   * @param truthValue startsWith or not
+   */
   private Value calculateStringEndsWith(JReferencedMethodInvocationExpression invocation,
                                           boolean truthValue) {
     JExpression string1 = invocation.getReferencedVariable();
     JExpression string2 = invocation.getParameterExpressions().get(0);
 
     if (mainState.getInAssertion()) {
-      boolean mustStartsWith = checkStringMustStartsWith(string1, string2);
-      return BooleanValue.valueOf(TrivialOp.XNOR(mustStartsWith, truthValue));
+      boolean mustEndsWith = checkStringMustEndWith(string1, string2);
+      return BooleanValue.valueOf(TrivialOp.XNOR(mustEndsWith, truthValue));
     } else {
-      boolean mayStartsWith = checkStringMayStartsWith(string1, string2);
-      return BooleanValue.valueOf(TrivialOp.XNOR(mayStartsWith, truthValue));
+      boolean mayEndsWith = checkStringMayEndWith(string1, string2);
+      return BooleanValue.valueOf(TrivialOp.XNOR(mayEndsWith, truthValue));
     }
   }
 
@@ -2184,18 +2194,23 @@ public abstract class AbstractExpressionValueVisitor
     return stringDomain1.strictlyEquivalent(stringDomain2);
   }
 
-  private boolean checkStringMayStartsWith(JExpression string1, JExpression string2) {
+  /**
+   * Check whether the value of <code>string2</code> may be the prefix of <code>string1</code>.
+   * If the answer is true, we will refine the current main state.
+   * @return true if the value may be equal
+   */
+  private boolean checkStringMayStartWith(JExpression string1, JExpression string2) {
 
     MemoryLocation stringVar1 = StringVariableGenerator.getExpressionMemLocation(string1, functionName);
     MemoryLocation stringVar2 = StringVariableGenerator.getExpressionMemLocation(string2, functionName);
 
-    // check equality relation
-    boolean hasPrefixRelation = auxiliaryState.checkProperty(stringVar1, stringVar2, RelationProperty.PREFIX);
+    // check prefix relation
+    boolean hasPrefixRelation = auxiliaryState.checkProperty(stringVar2, stringVar1, RelationProperty.PREFIX);
     if (hasPrefixRelation) {
       return true;
     }
 
-    // check whether there the intersection of domain is empty
+    // check whether string2 (as singleton) is the prefix of string1
     Value value1 = evaluate((JRightHandSide) string1, (JType) string1.getExpressionType());
     Value value2 = evaluate((JRightHandSide) string2, (JType) string2.getExpressionType());
 
@@ -2209,33 +2224,38 @@ public abstract class AbstractExpressionValueVisitor
     Automaton stringDomain1 = stringValue1.getValueDomain();
     Automaton stringDomain2 = stringValue2.getValueDomain();
 
-    if (stringDomain1 == null || stringDomain2 == null) {
+    if (stringDomain1 == null || stringDomain2 == null || !stringDomain2.isSingleton()) {
       return false;
     }
 
-    Automaton intersectionDomain = stringDomain1.intersection(stringDomain2);
-    if (!intersectionDomain.isEmpty()) {
+    if (Automaton.isPrefixOf(stringDomain2, stringDomain1)) {
       // refine the value of string variables
-      StringValue newValue = new StringValue(intersectionDomain);
+      Automaton newDomain = Automaton.setPrefixWith(stringDomain2, stringDomain1);
+      StringValue newValue = new StringValue(newDomain);
       startRefinement(stringVar1, newValue);
-      startRefinement(stringVar2, newValue);
       return true;
     } else {
       return false;
     }
   }
 
-  private boolean checkStringMustStartsWith(JExpression string1, JExpression string2) {
+  /**
+   * Check whether the value of <code>string2</code> must be the prefix of <code>string1</code>.
+   * If the answer is true, we will refine the current main state.
+   * @return true if the value may be equal
+   */
+  private boolean checkStringMustStartWith(JExpression string1, JExpression string2) {
+
     MemoryLocation stringVar1 = StringVariableGenerator.getExpressionMemLocation(string1, functionName);
     MemoryLocation stringVar2 = StringVariableGenerator.getExpressionMemLocation(string2, functionName);
 
-    // check equality relation
-    boolean hasEqualRelation = auxiliaryState.checkProperty(stringVar1, stringVar2, RelationProperty.EQUAL);
-    if (hasEqualRelation) {
+    // check prefix relation
+    boolean hasPrefixRelation = auxiliaryState.checkProperty(stringVar2, stringVar1, RelationProperty.PREFIX);
+    if (hasPrefixRelation) {
       return true;
     }
 
-    // check whether the value domains are strictly equal
+    // check whether string2 (as singleton) is the prefix of string1
     Value value1 = evaluate((JRightHandSide) string1, (JType) string1.getExpressionType());
     Value value2 = evaluate((JRightHandSide) string2, (JType) string2.getExpressionType());
 
@@ -2249,19 +2269,118 @@ public abstract class AbstractExpressionValueVisitor
     Automaton stringDomain1 = stringValue1.getValueDomain();
     Automaton stringDomain2 = stringValue2.getValueDomain();
 
-    if (stringDomain1 == null || stringDomain2 == null) {
+    if (stringDomain1 == null || stringDomain2 == null || !stringDomain2.isSingleton()) {
       return false;
     }
 
-    return stringDomain1.strictlyEquivalent(stringDomain2);
+    String commonPrefixOf1 = stringDomain1.getCommonPrefix();
+    if (commonPrefixOf1.startsWith(stringDomain2.getSingleton())) {
+      return true;
+    } else {
+      return false;
+    }
   }
 
+  /**
+   * Check whether the value of <code>string2</code> may be the suffix of <code>string1</code>.
+   * If the answer is true, we will refine the current main state.
+   * @return true if the value may be equal
+   */
+  private boolean checkStringMayEndWith(JExpression string1, JExpression string2) {
+
+    MemoryLocation stringVar1 = StringVariableGenerator.getExpressionMemLocation(string1, functionName);
+    MemoryLocation stringVar2 = StringVariableGenerator.getExpressionMemLocation(string2, functionName);
+
+    // check suffix relation
+    boolean hasSuffixRelation = auxiliaryState.checkProperty(stringVar2, stringVar1, RelationProperty.SUFFIX);
+    if (hasSuffixRelation) {
+      return true;
+    }
+
+    // check whether string2 (as singleton) is the prefix of string1
+    Value value1 = evaluate((JRightHandSide) string1, (JType) string1.getExpressionType());
+    Value value2 = evaluate((JRightHandSide) string2, (JType) string2.getExpressionType());
+
+    if (!(value1 instanceof StringValue) || !(value2 instanceof StringValue)) {
+      return false;
+    }
+
+    StringValue stringValue1 = (StringValue) value1;
+    StringValue stringValue2 = (StringValue) value2;
+
+    Automaton stringDomain1 = stringValue1.getValueDomain();
+    Automaton stringDomain2 = stringValue2.getValueDomain();
+
+    if (stringDomain1 == null || stringDomain2 == null || !stringDomain2.isSingleton()) {
+      return false;
+    }
+
+    if (Automaton.isSuffixOf(stringDomain2, stringDomain1)) {
+      // refine the value of string variables
+      Automaton newDomain = Automaton.setSuffixWith(stringDomain2, stringDomain1);
+      StringValue newValue = new StringValue(newDomain);
+      startRefinement(stringVar1, newValue);
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  /**
+   * Check whether the value of <code>string2</code> must be the suffix of <code>string1</code>.
+   * If the answer is true, we will refine the current main state.
+   * @return true if the value may be equal
+   */
+  private boolean checkStringMustEndWith(JExpression string1, JExpression string2) {
+
+    MemoryLocation stringVar1 = StringVariableGenerator.getExpressionMemLocation(string1, functionName);
+    MemoryLocation stringVar2 = StringVariableGenerator.getExpressionMemLocation(string2, functionName);
+
+    // check suffix relation
+    boolean hasSuffixRelation = auxiliaryState.checkProperty(stringVar2, stringVar1, RelationProperty.SUFFIX);
+    if (hasSuffixRelation) {
+      return true;
+    }
+
+    // check whether string2 (as singleton) is the suffix of string1
+    Value value1 = evaluate((JRightHandSide) string1, (JType) string1.getExpressionType());
+    Value value2 = evaluate((JRightHandSide) string2, (JType) string2.getExpressionType());
+
+    if (!(value1 instanceof StringValue) || !(value2 instanceof StringValue)) {
+      return false;
+    }
+
+    StringValue stringValue1 = (StringValue) value1;
+    StringValue stringValue2 = (StringValue) value2;
+
+    Automaton stringDomain1 = stringValue1.getValueDomain();
+    Automaton stringDomain2 = stringValue2.getValueDomain();
+
+    if (stringDomain1 == null || stringDomain2 == null || !stringDomain2.isSingleton()) {
+      return false;
+    }
+
+    String commonSuffixOf1 = stringDomain1.getCommonSuffix();
+    if (commonSuffixOf1.endsWith(stringDomain2.getSingleton())) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  /**
+   * Refine the value of <code>variable</code> to <code>newValue</code>.
+   */
   private void startRefinement(MemoryLocation variable, StringValue newValue) {
     Set<MemoryLocation> visitedVars = new HashSet<>();
     propagateRefinement(variable, newValue, visitedVars);
   }
 
+  /**
+  * Propagate the refinement, starting at <code>variable</code>.
+   */
   private void propagateRefinement(MemoryLocation variable, StringValue value, Set<MemoryLocation> visitedVars) {
+    // avoid repetitious searching
     if (!mainState.contains(variable) || visitedVars.contains(variable)) {
       return;
     }

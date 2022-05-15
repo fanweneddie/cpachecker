@@ -83,6 +83,12 @@ public class Transition implements Serializable, Cloneable {
 		this.max = max;
 		this.to = to;
 	}
+
+	public Transition(Transition pTransition) {
+		this.min = pTransition.min;
+		this.max = pTransition.max;
+		this.to = pTransition.to;
+	}
 	
 	/** Returns minimum of this transition interval. */
 	public char getMin() {

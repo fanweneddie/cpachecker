@@ -62,6 +62,20 @@ public class State implements Serializable, Comparable<State> {
 		resetTransitions();
 		id = next_id++;
 	}
+
+	public State(State pState) {
+		id = next_id++;
+		accept = pState.accept;
+		number = pState.number;
+		transitions = new HashSet<>();
+		for (Transition transition : pState.transitions) {
+			Transition newTransition = new Transition(transition);
+			if (newTransition.to == pState) {
+				newTransition.to = this;
+			}
+			transitions.add(newTransition);
+		}
+	}
 	
 	/** 
 	 * Resets transition set. 

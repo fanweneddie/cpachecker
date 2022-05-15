@@ -561,6 +561,13 @@ final public class SpecialOperations {
 		} while (!done);
 		return b.toString();
 	}
+
+	public static String getCommonSuffix(Automaton a) {
+		a = a.cloneExpandedIfRequired();
+		a.reverse();
+		StringBuilder str = new StringBuilder(a.getCommonPrefix());
+		return str.reverse().toString();
+	}
 	
 	/**
 	 * Prefix closes the given automaton.
@@ -950,5 +957,157 @@ final public class SpecialOperations {
 		a = getPrefix(a);
 		a.reverse();
 		return a;
+	}
+
+	/**
+	 * Check whether the singleton automaton <code>a1</code> is the prefix of a2.
+	 */
+	public static boolean isPrefixOf(Automaton a1, Automaton a2) {
+		assert a1.isSingleton();
+
+		if (a2.isSingleton()) {
+			return a2.singleton.startsWith(a1.singleton);
+		}
+
+		a2 = a2.cloneExpandedIfRequired();
+		a2.determinize();
+		return checkPrefixFrom(a1.singleton, a2.initial);
+	}
+
+	/**
+	 * Check whether the singleton automaton <code>a1</code> is the suffix of a2.
+	 */
+	public static boolean isSuffixOf(Automaton a1, Automaton a2) {
+		assert a1.isSingleton();
+
+		if (a2.isSingleton()) {
+			return a2.singleton.endsWith(a1.singleton);
+		}
+
+		StringBuilder newString = new StringBuilder(a1.singleton);
+		newString.reverse();
+
+		a2 = a2.cloneExpandedIfRequired();
+		a2.determinize();
+		a2.reverse();
+
+		return checkPrefixFrom(newString.toString(), a2.initial);
+	}
+
+	/**
+	 * Set the prefix of <code>a2</code> with <code>a1</code>.
+	 */
+	public static Automaton setPrefixWith(Automaton a1, Automaton a2) {
+		assert a1.isSingleton();
+
+		if (a2.isSingleton()) {
+			return a2;
+		}
+
+		a2 = a2.cloneExpandedIfRequired();
+		a2.determinize();
+		setPrefixFrom(a1.singleton, a2.initial);
+		return a2;
+	}
+
+	/**
+	 * Check whether <code>prefix</code> is the prefix from <code>initialState</code>.
+	 * */
+	private static boolean checkPrefixFrom(String prefix, State initialState) {
+
+		int maxDepth = prefix.length();
+
+		// do DFS to search the characters at the given depth from state
+		// the work list for DFS, whose element is the pair of state and its depth
+		Stack<Pair<State, Integer>> workList = new Stack<>();
+		// initialize by adding the initial state
+		workList.add(Pair.of(initialState, 0));
+
+		while (!workList.empty()) {
+			Pair<State, Integer> curPair = workList.pop();
+			State curState = curPair.getFirst();
+			int curDepth = curPair.getSecond();
+
+			if (curDepth < maxDepth) {
+				// check whether char at each position can be identified
+				for (Transition transition : curState.transitions) {
+					if (!transition.getChars().contains(prefix.charAt(curDepth))) {
+						return false;
+					}
+				}
+			} else {
+				continue;
+			}
+
+			// explore successors (without a guaranteed sequence)
+			for (Transition transition : curState.transitions) {
+				State nextState = transition.to;
+				Pair<State, Integer> nextPair = Pair.of(nextState, curDepth + 1);
+				workList.add(nextPair);
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Set the suffix of <code>a2</code> with <code>a1</code>.
+	 */
+	public static Automaton setSuffixWith(Automaton a1, Automaton a2) {
+		assert a1.isSingleton();
+
+		if (a2.isSingleton()) {
+			return a2;
+		}
+
+		StringBuilder newString = new StringBuilder(a1.singleton);
+		newString.reverse();
+		Automaton a1Reverse = new Automaton();
+		a1.singleton = newString.toString();
+
+		Automaton a2Cloned = a2.cloneExpandedIfRequired();
+		a2Cloned.determinize();
+		a2Cloned.reverse();
+
+		a2Cloned = setPrefixWith(a2Cloned, a1Reverse);
+		a2Cloned.reverse();
+		return a2Cloned;
+	}
+
+	/**
+	 * Set the prefix as <code>prefix</code> from state <code>initialState</code>.
+	 */
+	private static void setPrefixFrom(String prefix, State initialState) {
+
+		int maxDepth = prefix.length();
+
+		// do DFS to search the characters at the given depth from state
+		// the work list for DFS, whose element is the pair of state and its depth
+		Stack<Pair<State, Integer>> workList = new Stack<>();
+		// initialize by adding the initial state
+		workList.add(Pair.of(initialState, 0));
+
+		while (!workList.empty()) {
+			Pair<State, Integer> curPair = workList.pop();
+			State curState = curPair.getFirst();
+			int curDepth = curPair.getSecond();
+
+			if (curDepth < maxDepth) {
+				// check whether char at each position can be identified
+				for (Transition transition : curState.transitions) {
+					transition.setChar(prefix.charAt(curDepth));
+				}
+			} else {
+				continue;
+			}
+
+			// explore successors (without a guaranteed sequence)
+			for (Transition transition : curState.transitions) {
+				State nextState = new State(transition.to);
+				transition.to = nextState;
+				Pair<State, Integer> nextPair = Pair.of(nextState, curDepth + 1);
+				workList.add(nextPair);
+			}
+			curState.setAccept(false);
+		}
 	}
 }
