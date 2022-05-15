@@ -134,8 +134,8 @@ public class TypeChecker {
    * Check whether the given method returns a boolean value.
    */
   public static boolean isBooleanMethod(JReferencedMethodInvocationExpression invocation) {
-    // todo: wait for startwith(), contains() and endwith()
-    return isStringEquals(invocation); // ||
+    // todo: wait for contains
+    return isStringEquals(invocation) || isStringStartsWith(invocation) || isStringEndsWith(invocation);
   }
 
   /**
@@ -160,6 +160,54 @@ public class TypeChecker {
     return (isJavaGenericStringType(callerType) || isUnspecifiedType(callerType)) &&
           (isJavaGenericStringType(paramType) || isUnspecifiedType(paramType)) &&
             functionNameExpression.toString().equals("equals");
+  }
+
+  /**
+   * Check whether the given method is startsWith() of String.
+   */
+  public static boolean isStringStartsWith(JReferencedMethodInvocationExpression invocation) {
+    if (!(invocation.getFunctionNameExpression() instanceof JIdExpression)) {
+      return false;
+    }
+
+    JIdExpression functionNameExpression = (JIdExpression) invocation.getFunctionNameExpression();
+    JIdExpression callerObject = invocation.getReferencedVariable();
+    List<JExpression> params = invocation.getParameterExpressions();
+    if (params.size() != 1) {
+      return false;
+    }
+    JExpression paramObject = params.get(0);
+
+    JType callerType = callerObject.getExpressionType();
+    JType paramType = paramObject.getExpressionType();
+
+    return (isJavaGenericStringType(callerType) || isUnspecifiedType(callerType)) &&
+        (isJavaGenericStringType(paramType) || isUnspecifiedType(paramType)) &&
+        functionNameExpression.toString().equals("startsWith");
+  }
+
+  /**
+   * Check whether the given method is endsWith() of String.
+   */
+  public static boolean isStringEndsWith(JReferencedMethodInvocationExpression invocation) {
+    if (!(invocation.getFunctionNameExpression() instanceof JIdExpression)) {
+      return false;
+    }
+
+    JIdExpression functionNameExpression = (JIdExpression) invocation.getFunctionNameExpression();
+    JIdExpression callerObject = invocation.getReferencedVariable();
+    List<JExpression> params = invocation.getParameterExpressions();
+    if (params.size() != 1) {
+      return false;
+    }
+    JExpression paramObject = params.get(0);
+
+    JType callerType = callerObject.getExpressionType();
+    JType paramType = paramObject.getExpressionType();
+
+    return (isJavaGenericStringType(callerType) || isUnspecifiedType(callerType)) &&
+        (isJavaGenericStringType(paramType) || isUnspecifiedType(paramType)) &&
+        functionNameExpression.toString().equals("endsWith");
   }
 
   /**

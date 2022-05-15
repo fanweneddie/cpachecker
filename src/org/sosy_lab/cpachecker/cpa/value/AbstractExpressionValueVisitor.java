@@ -2027,6 +2027,22 @@ public abstract class AbstractExpressionValueVisitor
         boolean internalEquality = TrivialOp.XNOR(boolValue, isEquality);
         return calculateStringEqual(invocation, internalEquality);
     }
+    // consider string startsWith
+    if (TypeChecker.isStringStartsWith(invocation)) {
+      assert (rightValue instanceof BooleanValue);
+      boolean boolValue = ((BooleanValue) rightValue).isTrue();
+      boolean isEquality = TypeChecker.isEqualOperator(operator);
+      boolean internalEquality = TrivialOp.XNOR(boolValue, isEquality);
+      return calculateStringStartsWith(invocation, internalEquality);
+    }
+    // consider string endsWith
+    if (TypeChecker.isStringEndsWith(invocation)) {
+      assert (rightValue instanceof BooleanValue);
+      boolean boolValue = ((BooleanValue) rightValue).isTrue();
+      boolean isEquality = TypeChecker.isEqualOperator(operator);
+      boolean internalEquality = TrivialOp.XNOR(boolValue, isEquality);
+      return calculateStringEndsWith(invocation, internalEquality);
+    }
     return null;
   }
 
@@ -2047,6 +2063,34 @@ public abstract class AbstractExpressionValueVisitor
     } else {
       boolean mayEqual = checkStringMayEqual(string1, string2);
       return BooleanValue.valueOf(TrivialOp.XNOR(mayEqual, truthValue));
+    }
+  }
+
+  private Value calculateStringStartsWith(JReferencedMethodInvocationExpression invocation,
+                                            boolean truthValue) {
+    JExpression string1 = invocation.getReferencedVariable();
+    JExpression string2 = invocation.getParameterExpressions().get(0);
+
+    if (mainState.getInAssertion()) {
+      boolean mustStartsWith = checkStringMustStartsWith(string1, string2);
+      return BooleanValue.valueOf(TrivialOp.XNOR(mustStartsWith, truthValue));
+    } else {
+      boolean mayStartsWith = checkStringMayStartsWith(string1, string2);
+      return BooleanValue.valueOf(TrivialOp.XNOR(mayStartsWith, truthValue));
+    }
+  }
+
+  private Value calculateStringEndsWith(JReferencedMethodInvocationExpression invocation,
+                                          boolean truthValue) {
+    JExpression string1 = invocation.getReferencedVariable();
+    JExpression string2 = invocation.getParameterExpressions().get(0);
+
+    if (mainState.getInAssertion()) {
+      boolean mustStartsWith = checkStringMustStartsWith(string1, string2);
+      return BooleanValue.valueOf(TrivialOp.XNOR(mustStartsWith, truthValue));
+    } else {
+      boolean mayStartsWith = checkStringMayStartsWith(string1, string2);
+      return BooleanValue.valueOf(TrivialOp.XNOR(mayStartsWith, truthValue));
     }
   }
 
@@ -2110,6 +2154,78 @@ public abstract class AbstractExpressionValueVisitor
    */
   private boolean checkStringMustEqual(JExpression string1, JExpression string2) {
 
+    MemoryLocation stringVar1 = StringVariableGenerator.getExpressionMemLocation(string1, functionName);
+    MemoryLocation stringVar2 = StringVariableGenerator.getExpressionMemLocation(string2, functionName);
+
+    // check equality relation
+    boolean hasEqualRelation = auxiliaryState.checkProperty(stringVar1, stringVar2, RelationProperty.EQUAL);
+    if (hasEqualRelation) {
+      return true;
+    }
+
+    // check whether the value domains are strictly equal
+    Value value1 = evaluate((JRightHandSide) string1, (JType) string1.getExpressionType());
+    Value value2 = evaluate((JRightHandSide) string2, (JType) string2.getExpressionType());
+
+    if (!(value1 instanceof StringValue) || !(value2 instanceof StringValue)) {
+      return false;
+    }
+
+    StringValue stringValue1 = (StringValue) value1;
+    StringValue stringValue2 = (StringValue) value2;
+
+    Automaton stringDomain1 = stringValue1.getValueDomain();
+    Automaton stringDomain2 = stringValue2.getValueDomain();
+
+    if (stringDomain1 == null || stringDomain2 == null) {
+      return false;
+    }
+
+    return stringDomain1.strictlyEquivalent(stringDomain2);
+  }
+
+  private boolean checkStringMayStartsWith(JExpression string1, JExpression string2) {
+
+    MemoryLocation stringVar1 = StringVariableGenerator.getExpressionMemLocation(string1, functionName);
+    MemoryLocation stringVar2 = StringVariableGenerator.getExpressionMemLocation(string2, functionName);
+
+    // check equality relation
+    boolean hasPrefixRelation = auxiliaryState.checkProperty(stringVar1, stringVar2, RelationProperty.PREFIX);
+    if (hasPrefixRelation) {
+      return true;
+    }
+
+    // check whether there the intersection of domain is empty
+    Value value1 = evaluate((JRightHandSide) string1, (JType) string1.getExpressionType());
+    Value value2 = evaluate((JRightHandSide) string2, (JType) string2.getExpressionType());
+
+    if (!(value1 instanceof StringValue) || !(value2 instanceof StringValue)) {
+      return false;
+    }
+
+    StringValue stringValue1 = (StringValue) value1;
+    StringValue stringValue2 = (StringValue) value2;
+
+    Automaton stringDomain1 = stringValue1.getValueDomain();
+    Automaton stringDomain2 = stringValue2.getValueDomain();
+
+    if (stringDomain1 == null || stringDomain2 == null) {
+      return false;
+    }
+
+    Automaton intersectionDomain = stringDomain1.intersection(stringDomain2);
+    if (!intersectionDomain.isEmpty()) {
+      // refine the value of string variables
+      StringValue newValue = new StringValue(intersectionDomain);
+      startRefinement(stringVar1, newValue);
+      startRefinement(stringVar2, newValue);
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  private boolean checkStringMustStartsWith(JExpression string1, JExpression string2) {
     MemoryLocation stringVar1 = StringVariableGenerator.getExpressionMemLocation(string1, functionName);
     MemoryLocation stringVar2 = StringVariableGenerator.getExpressionMemLocation(string2, functionName);
 
